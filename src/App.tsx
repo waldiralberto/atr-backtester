@@ -571,7 +571,7 @@ function HomePage({ onSelect, tradeCounts }: { onSelect: (id: string) => void; t
                   <span style={{ fontSize: 10, letterSpacing: 2, color: s.locked ? TEXT_LIGHT : s.color, fontWeight: 700, background: s.locked ? "#f0f2f8" : `${s.color}16`, padding: "3px 10px", borderRadius: 20 }}>{s.tag}</span>
                 </div>
                 <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 17, fontWeight: 800, color: TEXT, marginBottom: 8 }}>{s.name}</div>
-                <div style={{ fontSize: 12, color: TEXT_MID, lineHeight: 1.4.7, marginBottom: 20 }}>{s.description}</div>
+                <div style={{ fontSize: 12, color: TEXT_MID, lineHeight: 1.7, marginBottom: 20 }}>{s.description}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: 11, color: TEXT_LIGHT }}>{s.locked ? "—" : <><span style={{ color: TEXT, fontWeight: 700 }}>{count}</span> trades logged</>}</div>
                   {!s.locked && <div style={{ fontSize: 11, color: s.color, fontWeight: 700 }}>OPEN →</div>}
