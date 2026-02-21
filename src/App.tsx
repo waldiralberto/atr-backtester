@@ -9,7 +9,7 @@ const BG = "#eef0f6";
 const CARD = "#fff";
 const GOLD = "#c8900a";
 const GOLD_BG = "rgba(200,144,10,0.1)";
-const F = "'Inter', sans-serif";
+const F = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const FH = "'Syne', sans-serif";
 
 const fmt = (n: number) =>
@@ -85,11 +85,11 @@ function CalendarView({ trades }: { trades: any[] }) {
   return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)", marginBottom: 28 }}>
       <div style={{ padding: "20px 28px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 16, background: "#f8f9fd" }}>
-        <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700, fontFamily: F }}>P&L CALENDAR</div>
+        <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>P&L CALENDAR</div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
           <span style={{ fontFamily: FH, fontSize: 18, fontWeight: 800, color: TEXT }}>{monthName}</span>
-          <span style={{ fontSize: 17, fontWeight: 700, color: monthPnl >= 0 ? "#00a040" : "#ff3366", fontFamily: F }}>{fmtShort(monthPnl)}</span>
-          <button onClick={() => setCalDate(new Date())} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 16px", fontSize: 13, cursor: "pointer", fontFamily: F, fontWeight: 600 }}>Today</button>
+          <span style={{ fontSize: 17, fontWeight: 700, color: monthPnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(monthPnl)}</span>
+          <button onClick={() => setCalDate(new Date())} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>Today</button>
           <button onClick={() => setCalDate(new Date(year, month - 1, 1))} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 12px", fontSize: 16, cursor: "pointer" }}>‹</button>
           <button onClick={() => setCalDate(new Date(year, month + 1, 1))} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 12px", fontSize: 16, cursor: "pointer" }}>›</button>
         </div>
@@ -97,9 +97,9 @@ function CalendarView({ trades }: { trades: any[] }) {
       <div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr) 120px", borderBottom: `1px solid ${BORDER}` }}>
           {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
-            <div key={d} style={{ padding: "12px 0", textAlign: "center", fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700, fontFamily: F }}>{d}</div>
+            <div key={d} style={{ padding: "12px 0", textAlign: "center", fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>{d}</div>
           ))}
-          <div style={{ padding: "12px 16px", fontSize: 12, color: TEXT_LIGHT, fontWeight: 700, borderLeft: `1px solid ${BORDER}`, fontFamily: F }}>WEEK</div>
+          <div style={{ padding: "12px 16px", fontSize: 12, color: TEXT_LIGHT, fontWeight: 700, borderLeft: `1px solid ${BORDER}` }}>WEEK</div>
         </div>
         {weeks.map((week, wi) => {
           const weekPnl = week.reduce((s, d) => s + (d ? (dayMap[dateKey(d)] || 0) : 0), 0);
@@ -116,25 +116,21 @@ function CalendarView({ trades }: { trades: any[] }) {
                 const isWin = hasData && pnl > 0;
                 const isLoss = hasData && pnl < 0;
                 return (
-                  <div key={di} style={{
-                    padding: "10px 12px", borderRight: di < 6 ? `1px solid #f0f3fa` : "none",
-                    background: isToday ? "rgba(0,191,255,0.05)" : isWin ? "rgba(0,192,80,0.05)" : isLoss ? "rgba(255,51,102,0.04)" : "transparent",
-                    minHeight: 86, display: "flex", flexDirection: "column", justifyContent: "space-between",
-                  }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday ? "#00bfff" : "transparent", fontSize: 13, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : TEXT_MID, fontFamily: F }}>{d}</div>
+                  <div key={di} style={{ padding: "10px 12px", borderRight: di < 6 ? `1px solid #f0f3fa` : "none", background: isToday ? "rgba(0,191,255,0.05)" : isWin ? "rgba(0,192,80,0.05)" : isLoss ? "rgba(255,51,102,0.04)" : "transparent", minHeight: 86, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday ? "#00bfff" : "transparent", fontSize: 13, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : TEXT_MID }}>{d}</div>
                     {hasData && (
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: isWin ? "#00a040" : "#ff3366", fontFamily: F }}>{fmtShort(pnl)}</div>
-                        <div style={{ fontSize: 11, color: TEXT_LIGHT, marginTop: 2, fontFamily: F }}>{count} trade{count !== 1 ? "s" : ""}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: isWin ? "#00a040" : "#ff3366" }}>{fmtShort(pnl)}</div>
+                        <div style={{ fontSize: 11, color: TEXT_LIGHT, marginTop: 2 }}>{count} trade{count !== 1 ? "s" : ""}</div>
                       </div>
                     )}
                   </div>
                 );
               })}
               <div style={{ padding: "14px 16px", borderLeft: `1px solid ${BORDER}`, background: weekPnl > 0 ? "rgba(0,192,80,0.06)" : weekPnl < 0 ? "rgba(255,51,102,0.05)" : "#fafbfd", display: "flex", flexDirection: "column", justifyContent: "center", gap: 5 }}>
-                <div style={{ fontSize: 11, color: TEXT_LIGHT, fontWeight: 600, fontFamily: F }}>Week {wi + 1}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: weekPnl > 0 ? "#00a040" : weekPnl < 0 ? "#ff3366" : TEXT_LIGHT, fontFamily: F }}>{weekTrades > 0 ? fmtShort(weekPnl) : "$0"}</div>
-                <div style={{ fontSize: 11, color: TEXT_LIGHT, fontFamily: F }}>{weekTrades} trades</div>
+                <div style={{ fontSize: 11, color: TEXT_LIGHT, fontWeight: 600 }}>Week {wi + 1}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: weekPnl > 0 ? "#00a040" : weekPnl < 0 ? "#ff3366" : TEXT_LIGHT }}>{weekTrades > 0 ? fmtShort(weekPnl) : "$0"}</div>
+                <div style={{ fontSize: 11, color: TEXT_LIGHT }}>{weekTrades} trades</div>
               </div>
             </div>
           );
@@ -151,7 +147,7 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
   const [renameVal, setRenameVal] = useState("");
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(20,30,50,0.35)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
-      <div style={{ background: CARD, borderRadius: 20, padding: "36px 32px", width: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", border: `1px solid ${BORDER}`, fontFamily: F }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: CARD, borderRadius: 20, padding: "36px 32px", width: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", border: `1px solid ${BORDER}` }} onClick={(e) => e.stopPropagation()}>
         <div style={{ fontFamily: FH, fontSize: 22, fontWeight: 800, color: TEXT, marginBottom: 8 }}>Sessions</div>
         <div style={{ fontSize: 14, color: TEXT_LIGHT, marginBottom: 26 }}>Save and switch between named trade logs</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24, maxHeight: 300, overflowY: "auto" }}>
@@ -163,7 +159,7 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
                   <input value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { onRename(s.id, renameVal); setRenaming(null); } if (e.key === "Escape") setRenaming(null); }}
                     autoFocus onClick={(e) => e.stopPropagation()}
-                    style={{ fontSize: 15, border: "1px solid #00bfff", borderRadius: 6, padding: "5px 12px", color: TEXT, width: "100%", fontFamily: F }} />
+                    style={{ fontSize: 15, border: "1px solid #00bfff", borderRadius: 6, padding: "5px 12px", color: TEXT, width: "100%" }} />
                 ) : (
                   <>
                     <div style={{ fontSize: 15, fontWeight: 600, color: TEXT }}>{s.name}</div>
@@ -185,9 +181,9 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
             <input value={newName} onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) { onCreate(newName.trim()); setNewName(""); } }}
               placeholder='e.g. "Week of Feb 17"'
-              style={{ flex: 1, background: "#f4f6fb", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, padding: "13px 18px", fontSize: 15, fontFamily: F }} />
+              style={{ flex: 1, background: "#f4f6fb", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, padding: "13px 18px", fontSize: 15 }} />
             <button onClick={() => { if (newName.trim()) { onCreate(newName.trim()); setNewName(""); } }}
-              style={{ background: "linear-gradient(135deg,#00bfff,#0070ff)", border: "none", borderRadius: 10, color: "#fff", padding: "13px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>
+              style={{ background: "linear-gradient(135deg,#00bfff,#0070ff)", border: "none", borderRadius: 10, color: "#fff", padding: "13px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
               + CREATE
             </button>
           </div>
@@ -205,8 +201,11 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
   const [points, setPoints] = useState("");
   const [contracts, setContracts] = useState("3");
   const [filter, setFilter] = useState("all");
-  const [editId, setEditId] = useState<number | null>(null);
+  // editing a row: track which field is being edited
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingField, setEditingField] = useState<"points"|"date"|null>(null);
   const [editPoints, setEditPoints] = useState("");
+  const [editDate, setEditDate] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
   const [showSessions, setShowSessions] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -241,38 +240,51 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
     showToast(dollar > 0 ? `+${fmt(dollar)} logged` : `${fmt(dollar)} logged`, dollar > 0 ? "success" : "loss");
   };
   const deleteTrade = (id: number) => { const u = trades.filter((t) => t.id !== id); setTrades(u); saveTrades(u, activeId); showToast("Trade removed"); };
-  const saveEdit = (id: number) => {
-    const p = parseFloat(editPoints); if (isNaN(p) || p === 0) return;
-    const u = trades.map((t) => t.id === id ? { ...t, points: p, dollar: p * OZ_PER_CONTRACT * t.contracts } : t);
-    setTrades(u); saveTrades(u, activeId); setEditId(null); showToast("Trade updated");
+
+  const startEdit = (t: any, field: "points"|"date") => {
+    setEditingId(t.id); setEditingField(field);
+    if (field === "points") setEditPoints(String(t.points));
+    if (field === "date") setEditDate(t.date);
+  };
+  const cancelEdit = () => { setEditingId(null); setEditingField(null); };
+  const commitEdit = (id: number) => {
+    const u = trades.map((t) => {
+      if (t.id !== id) return t;
+      if (editingField === "points") {
+        const p = parseFloat(editPoints);
+        if (isNaN(p) || p === 0) return t;
+        return { ...t, points: p, dollar: p * OZ_PER_CONTRACT * t.contracts };
+      }
+      if (editingField === "date") return { ...t, date: editDate };
+      return t;
+    });
+    setTrades(u); saveTrades(u, activeId); cancelEdit(); showToast("Trade updated");
   };
 
   const displayed = trades.filter((t) => filter === "wins" ? t.points > 0 : filter === "losses" ? t.points < 0 : true);
   const stats = computeStats(trades);
   const activeSession = sessions.find((s) => s.id === activeId);
 
-  if (loading) return <div style={{ background: BG, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_LIGHT, fontFamily: F, fontSize: 16 }}>Loading...</div>;
+  if (loading) return <div style={{ background: BG, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_LIGHT, fontSize: 16 }}>Loading...</div>;
 
   return (
-    <div style={{ background: BG, minHeight: "100vh", color: TEXT, fontFamily: F }}>
+    <div style={{ background: BG, minHeight: "100vh", color: TEXT }}>
       {showSessions && <SessionModal sessions={sessions} activeId={activeId} onSelect={switchSession} onCreate={createSession} onRename={renameSession} onDelete={deleteSession} onClose={() => setShowSessions(false)} />}
       {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 999, background: CARD, border: `2px solid ${toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00cc60"}`, borderRadius: 12, padding: "14px 24px", color: toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00a040", fontSize: 15, fontWeight: 600, fontFamily: F, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}>
+        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 999, background: CARD, border: `2px solid ${toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00cc60"}`, borderRadius: 12, padding: "14px 24px", color: toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00a040", fontSize: 15, fontWeight: 600, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", animation: "slideIn .2s ease" }}>
           {toast.msg}
         </div>
       )}
 
       {/* Header */}
       <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: "22px 36px", display: "flex", alignItems: "center", gap: 18, boxShadow: "0 2px 12px rgba(0,0,0,0.04)", flexWrap: "wrap" }}>
-        <button onClick={onBack} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT_MID, padding: "10px 20px", fontSize: 14, cursor: "pointer", fontFamily: F, fontWeight: 600 }}>← Back</button>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT_MID, padding: "10px 20px", fontSize: 14, cursor: "pointer", fontWeight: 600 }}>← Back</button>
         <div style={{ width: 1, height: 28, background: BORDER }} />
-        <div style={{ fontFamily: FH, fontSize: 22, fontWeight: 800, color: TEXT }}>
-          📈 ATR <span style={{ color: "#00bfff" }}>Trailing Stop</span>
-        </div>
-        <div style={{ fontSize: 13, color: TEXT_LIGHT, letterSpacing: 1, fontFamily: F }}>· 7MIN · /MGC · $10/PT/CTR</div>
+        <div style={{ fontFamily: FH, fontSize: 22, fontWeight: 800, color: TEXT }}>📈 ATR <span style={{ color: "#00bfff" }}>Trailing Stop</span></div>
+        <div style={{ fontSize: 13, color: TEXT_LIGHT, letterSpacing: 1 }}>· 7MIN · /MGC · $10/PT/CTR</div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 14, alignItems: "center" }}>
-          {stats && <span style={{ fontSize: 16, color: stats.totalPnl >= 0 ? "#00a040" : "#ff3366", fontWeight: 700, fontFamily: F }}>{fmt(stats.totalPnl)}</span>}
-          <button onClick={() => setShowSessions(true)} style={{ background: GOLD_BG, border: `1.5px solid ${GOLD}`, borderRadius: 10, color: GOLD, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: F, display: "flex", alignItems: "center", gap: 10 }}>
+          {stats && <span style={{ fontSize: 16, color: stats.totalPnl >= 0 ? "#00a040" : "#ff3366", fontWeight: 700 }}>{fmt(stats.totalPnl)}</span>}
+          <button onClick={() => setShowSessions(true)} style={{ background: GOLD_BG, border: `1.5px solid ${GOLD}`, borderRadius: 10, color: GOLD, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
             <span>📁</span><span>{activeSession?.name || "Session"}</span><span style={{ fontSize: 12, color: TEXT_LIGHT }}>▾</span>
           </button>
         </div>
@@ -287,7 +299,7 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
             <div style={{ minWidth: 170 }}>
               <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>DATE</div>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, padding: "13px 16px", fontSize: 15, width: "100%", fontFamily: F }} />
+                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, padding: "13px 16px", fontSize: 15, width: "100%" }} />
             </div>
             <div style={{ flex: 1, minWidth: 180 }}>
               <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>POINTS <span style={{ color: GOLD }}>◆</span></div>
@@ -296,43 +308,29 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
                 <input type="number" step="0.5" value={points} onChange={(e) => setPoints(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addTrade()}
                   placeholder="+ win  /  − loss"
-                  style={{ background: "transparent", border: "none", color: TEXT, padding: "13px 16px 13px 0", fontSize: 16, width: "100%", fontFamily: F, fontWeight: 600 }} />
+                  style={{ background: "transparent", border: "none", color: TEXT, padding: "13px 16px 13px 0", fontSize: 16, width: "100%", fontWeight: 600 }} />
               </div>
             </div>
             <div>
               <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>RESULT</div>
-              <div style={{
-                padding: "13px 26px", borderRadius: 10, fontSize: 15, fontWeight: 800, fontFamily: FH, letterSpacing: 1, minWidth: 120, textAlign: "center",
-                background: isWin === null ? "#f5f7fc" : isWin ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.09)",
-                color: isWin === null ? TEXT_LIGHT : isWin ? "#00a040" : "#ff3366",
-                border: `2px solid ${isWin === null ? BORDER : isWin ? "#00c060" : "#ff3366"}`,
-                boxShadow: isWin === null ? "none" : isWin ? "0 0 16px rgba(0,192,80,0.2)" : "0 0 16px rgba(255,51,102,0.18)",
-                transition: "all 0.2s",
-              }}>
+              <div style={{ padding: "13px 26px", borderRadius: 10, fontSize: 15, fontWeight: 800, fontFamily: FH, letterSpacing: 1, minWidth: 120, textAlign: "center", background: isWin === null ? "#f5f7fc" : isWin ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.09)", color: isWin === null ? TEXT_LIGHT : isWin ? "#00a040" : "#ff3366", border: `2px solid ${isWin === null ? BORDER : isWin ? "#00c060" : "#ff3366"}`, transition: "all 0.2s" }}>
                 {isWin === null ? "— —" : isWin ? "✓ WIN" : "✕ LOSS"}
               </div>
             </div>
             <div style={{ minWidth: 120 }}>
               <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>/MGC CTRS</div>
               <input type="number" min="1" value={contracts} onChange={(e) => setContracts(e.target.value)}
-                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, padding: "13px 16px", fontSize: 15, width: "100%", textAlign: "center", fontFamily: F }} />
+                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, padding: "13px 16px", fontSize: 15, width: "100%", textAlign: "center" }} />
             </div>
             <div style={{ minWidth: 150 }}>
               <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>P&L PREVIEW</div>
-              <div style={{
-                padding: "13px 18px", background: "#f5f7fc",
-                border: `2px solid ${previewDollar !== null ? (previewDollar > 0 ? "#00c060" : "#ff3366") : BORDER}`,
-                borderRadius: 10, fontSize: 16, fontWeight: 700, textAlign: "right", fontFamily: F,
-                color: previewDollar !== null ? (previewDollar > 0 ? "#00a040" : "#ff3366") : TEXT_LIGHT,
-                boxShadow: previewDollar !== null ? `0 0 14px ${previewDollar > 0 ? "rgba(0,192,80,0.2)" : "rgba(255,51,102,0.18)"}` : "none",
-                transition: "all 0.2s",
-              }}>
+              <div style={{ padding: "13px 18px", background: "#f5f7fc", border: `2px solid ${previewDollar !== null ? (previewDollar > 0 ? "#00c060" : "#ff3366") : BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 700, textAlign: "right", color: previewDollar !== null ? (previewDollar > 0 ? "#00a040" : "#ff3366") : TEXT_LIGHT, transition: "all 0.2s" }}>
                 {previewDollar !== null ? fmt(previewDollar) : "$—"}
               </div>
-              {previewDollar !== null && <div style={{ fontSize: 11, color: TEXT_LIGHT, marginTop: 5, textAlign: "center", fontFamily: F }}>{pointsNum > 0 ? "+" : ""}{pointsNum} pts × {contractsNum}x</div>}
+              {previewDollar !== null && <div style={{ fontSize: 11, color: TEXT_LIGHT, marginTop: 5, textAlign: "center" }}>{pointsNum > 0 ? "+" : ""}{pointsNum} pts × {contractsNum}x</div>}
             </div>
             <button onClick={addTrade} className="log-btn"
-              style={{ background: "linear-gradient(135deg,#00bfff,#0070ff)", border: "none", borderRadius: 10, color: "#fff", padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: F, boxShadow: "0 4px 16px rgba(0,128,255,0.26)", whiteSpace: "nowrap", transition: "all .15s" }}>
+              style={{ background: "linear-gradient(135deg,#00bfff,#0070ff)", border: "none", borderRadius: 10, color: "#fff", padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,128,255,0.26)", whiteSpace: "nowrap", transition: "all .15s" }}>
               LOG TRADE
             </button>
           </div>
@@ -343,47 +341,62 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
           <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
             {[{ key: "all", label: "ALL", color: "#00bfff" }, { key: "wins", label: "✓ WINS", color: "#00c060" }, { key: "losses", label: "✕ LOSSES", color: "#ff3366" }].map((f) => (
               <div key={f.key} onClick={() => setFilter(f.key)} className="pill"
-                style={{ padding: "8px 20px", borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.15s", fontFamily: F,
-                  background: filter === f.key ? f.color : CARD, color: filter === f.key ? "#fff" : TEXT_MID,
-                  border: `1px solid ${filter === f.key ? "transparent" : BORDER}`,
-                  boxShadow: filter === f.key ? `0 2px 10px ${f.color}55` : "none" }}>
+                style={{ padding: "8px 20px", borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.15s", background: filter === f.key ? f.color : CARD, color: filter === f.key ? "#fff" : TEXT_MID, border: `1px solid ${filter === f.key ? "transparent" : BORDER}`, boxShadow: filter === f.key ? `0 2px 10px ${f.color}55` : "none" }}>
                 {f.label}
               </div>
             ))}
-            <div style={{ marginLeft: "auto", fontSize: 13, color: TEXT_LIGHT, fontFamily: F }}>{displayed.length} trades · {activeSession?.name}</div>
+            <div style={{ marginLeft: "auto", fontSize: 13, color: TEXT_LIGHT }}>{displayed.length} trades · {activeSession?.name}</div>
           </div>
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "50px 130px 1fr 90px 140px 90px 50px", padding: "14px 24px", borderBottom: `1px solid ${BORDER}`, background: "#f5f7fc" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "44px 160px 1fr 80px 130px 80px 44px", padding: "14px 24px", borderBottom: `1px solid ${BORDER}`, background: "#f5f7fc" }}>
               {["#","DATE","POINTS","CTRS","P&L","RESULT",""].map((h) => (
-                <div key={h} style={{ fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700, fontFamily: F }}>{h}</div>
+                <div key={h} style={{ fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>{h}</div>
               ))}
             </div>
             {displayed.length === 0 && (
-              <div style={{ padding: "48px 20px", textAlign: "center", color: TEXT_LIGHT, fontSize: 15, fontFamily: F }}>No trades yet — log one above ↑</div>
+              <div style={{ padding: "48px 20px", textAlign: "center", color: TEXT_LIGHT, fontSize: 15 }}>No trades yet — log one above ↑</div>
             )}
             {displayed.map((t, i) => {
               const win = t.points > 0;
+              const isEditingPoints = editingId === t.id && editingField === "points";
+              const isEditingDate = editingId === t.id && editingField === "date";
               return (
-                <div key={t.id} className="trade-row" style={{ display: "grid", gridTemplateColumns: "50px 130px 1fr 90px 140px 90px 50px", padding: "16px 24px", borderBottom: `1px solid #f0f3fa`, alignItems: "center", background: i % 2 === 0 ? CARD : "#fafbfd", transition: "background 0.1s" }}>
-                  <div style={{ color: TEXT_LIGHT, fontSize: 13, fontFamily: F }}>{displayed.length - i}</div>
-                  <div style={{ color: TEXT_MID, fontSize: 14, fontFamily: F }}>{t.date}</div>
+                <div key={t.id} className="trade-row" style={{ display: "grid", gridTemplateColumns: "44px 160px 1fr 80px 130px 80px 44px", padding: "14px 24px", borderBottom: `1px solid #f0f3fa`, alignItems: "center", background: i % 2 === 0 ? CARD : "#fafbfd", transition: "background 0.1s" }}>
+                  <div style={{ color: TEXT_LIGHT, fontSize: 13 }}>{displayed.length - i}</div>
+
+                  {/* Editable DATE */}
                   <div>
-                    {editId === t.id ? (
-                      <input type="number" step="0.5" value={editPoints} onChange={(e) => setEditPoints(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(t.id); if (e.key === "Escape") setEditId(null); }}
-                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 12px", fontSize: 15, width: 100, fontFamily: F }} />
+                    {isEditingDate ? (
+                      <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitEdit(t.id); if (e.key === "Escape") cancelEdit(); }}
+                        autoFocus
+                        style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 10px", fontSize: 13, fontFamily: F }} />
                     ) : (
-                      <span onDoubleClick={() => { setEditId(t.id); setEditPoints(String(t.points)); }}
-                        title="Double-click to edit"
-                        style={{ color: GOLD, fontSize: 16, fontWeight: 700, cursor: "text", fontFamily: FH }}>
+                      <span onDoubleClick={() => startEdit(t, "date")} title="Double-click to edit date"
+                        style={{ color: TEXT_MID, fontSize: 14, cursor: "text", borderBottom: `1px dashed ${BORDER}` }}>
+                        {t.date}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Editable POINTS */}
+                  <div>
+                    {isEditingPoints ? (
+                      <input type="number" step="0.5" value={editPoints} onChange={(e) => setEditPoints(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitEdit(t.id); if (e.key === "Escape") cancelEdit(); }}
+                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 12px", fontSize: 15, width: 100 }} />
+                    ) : (
+                      <span onDoubleClick={() => startEdit(t, "points")} title="Double-click to edit points"
+                        style={{ color: GOLD, fontSize: 16, fontWeight: 700, cursor: "text", fontFamily: FH, borderBottom: `1px dashed ${BORDER}` }}>
                         {win ? "+" : ""}{t.points} <span style={{ fontSize: 12, color: TEXT_LIGHT, fontFamily: F, fontWeight: 400 }}>pts</span>
                       </span>
                     )}
                   </div>
-                  <div style={{ color: TEXT_MID, fontSize: 14, fontFamily: F }}>{t.contracts}x</div>
-                  <div style={{ color: win ? "#00a040" : "#ff3366", fontSize: 15, fontWeight: 700, fontFamily: F }}>{fmt(t.dollar)}</div>
+
+                  <div style={{ color: TEXT_MID, fontSize: 14 }}>{t.contracts}x</div>
+                  <div style={{ color: win ? "#00a040" : "#ff3366", fontSize: 15, fontWeight: 700 }}>{fmt(t.dollar)}</div>
                   <div>
-                    <span style={{ background: win ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.08)", color: win ? "#00a040" : "#ff3366", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700, fontFamily: F }}>
+                    <span style={{ background: win ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.08)", color: win ? "#00a040" : "#ff3366", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700 }}>
                       {win ? "WIN" : "LOSS"}
                     </span>
                   </div>
@@ -393,6 +406,11 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
                 </div>
               );
             })}
+            {displayed.length > 0 && (
+              <div style={{ padding: "10px 24px", background: "#f8f9fd", borderTop: `1px solid ${BORDER}`, fontSize: 11, color: TEXT_LIGHT, textAlign: "center" }}>
+                Double-click DATE or POINTS to edit
+              </div>
+            )}
           </div>
         </div>
 
@@ -413,15 +431,15 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
               { label: "TOTAL TRADES", value: String(stats.total), sub: "this session", color: "#00bfff" },
             ].map((s) => (
               <div key={s.label} className="stat-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: "20px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
-                <div style={{ fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, marginBottom: 12, fontWeight: 700, fontFamily: F }}>{s.label}</div>
+                <div style={{ fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, marginBottom: 12, fontWeight: 700 }}>{s.label}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: FH, lineHeight: 1.2 }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 8, fontFamily: F }}>{s.sub}</div>
+                <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 8 }}>{s.sub}</div>
               </div>
             ))}
           </div>
         )}
-        <div style={{ textAlign: "center", marginBottom: 28, fontSize: 12, color: TEXT_LIGHT, fontFamily: F }}>
-          Double-click points to edit · /MGC = $10 per point per contract · Data saved to browser
+        <div style={{ textAlign: "center", marginBottom: 28, fontSize: 12, color: TEXT_LIGHT }}>
+          /MGC = $10 per point per contract · Data saved to browser
         </div>
       </div>
     </div>
@@ -436,17 +454,15 @@ const STRATEGIES = [
 
 function HomePage({ onSelect, tradeCounts }: { onSelect: (id: string) => void; tradeCounts: Record<string, number> }) {
   return (
-    <div style={{ minHeight: "100vh", background: BG, fontFamily: F }}>
+    <div style={{ minHeight: "100vh", background: BG }}>
       <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: "24px 40px", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ fontFamily: FH, fontSize: 26, fontWeight: 800, color: TEXT }}>
-          ATR <span style={{ color: "#00bfff" }}>TRADE</span> BACKTESTER
-        </div>
-        <div style={{ fontSize: 13, color: TEXT_LIGHT, letterSpacing: 2, fontFamily: F }}>· STRATEGY DASHBOARD</div>
+        <div style={{ fontFamily: FH, fontSize: 26, fontWeight: 800, color: TEXT }}>ATR <span style={{ color: "#00bfff" }}>TRADE</span> BACKTESTER</div>
+        <div style={{ fontSize: 13, color: TEXT_LIGHT, letterSpacing: 2 }}>· STRATEGY DASHBOARD</div>
       </div>
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 32px" }}>
         <div style={{ marginBottom: 36 }}>
           <div style={{ fontFamily: FH, fontSize: 30, fontWeight: 800, color: TEXT, marginBottom: 10 }}>My Strategies</div>
-          <div style={{ fontSize: 16, color: TEXT_MID, fontFamily: F }}>Select a strategy to log and analyze your backtesting trades.</div>
+          <div style={{ fontSize: 16, color: TEXT_MID }}>Select a strategy to log and analyze your backtesting trades.</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 24 }}>
           {STRATEGIES.map((s: any) => {
@@ -457,13 +473,13 @@ function HomePage({ onSelect, tradeCounts }: { onSelect: (id: string) => void; t
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: s.locked ? BORDER : s.color, borderRadius: "18px 18px 0 0" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
                   <span style={{ fontSize: 36 }}>{s.icon}</span>
-                  <span style={{ fontSize: 12, letterSpacing: 1, color: s.locked ? TEXT_LIGHT : s.color, fontWeight: 700, background: s.locked ? "#f0f2f8" : `${s.color}16`, padding: "5px 14px", borderRadius: 20, fontFamily: F }}>{s.tag}</span>
+                  <span style={{ fontSize: 12, letterSpacing: 1, color: s.locked ? TEXT_LIGHT : s.color, fontWeight: 700, background: s.locked ? "#f0f2f8" : `${s.color}16`, padding: "5px 14px", borderRadius: 20 }}>{s.tag}</span>
                 </div>
                 <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 800, color: TEXT, marginBottom: 12 }}>{s.name}</div>
-                <div style={{ fontSize: 14, color: TEXT_MID, lineHeight: 1.7, marginBottom: 24, fontFamily: F }}>{s.description}</div>
+                <div style={{ fontSize: 14, color: TEXT_MID, lineHeight: 1.7, marginBottom: 24 }}>{s.description}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 13, color: TEXT_LIGHT, fontFamily: F }}>{s.locked ? "—" : <><span style={{ color: TEXT, fontWeight: 700 }}>{count}</span> trades logged</>}</div>
-                  {!s.locked && <div style={{ fontSize: 14, color: s.color, fontWeight: 700, fontFamily: F }}>OPEN →</div>}
+                  <div style={{ fontSize: 13, color: TEXT_LIGHT }}>{s.locked ? "—" : <><span style={{ color: TEXT, fontWeight: 700 }}>{count}</span> trades logged</>}</div>
+                  {!s.locked && <div style={{ fontSize: 14, color: s.color, fontWeight: 700 }}>OPEN →</div>}
                 </div>
               </div>
             );
@@ -482,25 +498,8 @@ export default function App() {
     try { const sessions = loadSessions(); let total = 0; sessions.forEach((s: any) => { total += loadSessionTrades(s.id).length; }); counts["atr-trailing"] = total; } catch {}
     setTradeCounts(counts);
   }, [page]);
-
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&family=Syne:wght@700;800&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; }
-        input { font-family: 'Inter', sans-serif; }
-        input:focus { outline: none !important; border-color: #00bfff !important; box-shadow: 0 0 0 3px rgba(0,191,255,0.13) !important; }
-        input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.5; }
-        ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #eef0f6; } ::-webkit-scrollbar-thumb { background: #c8d2e2; border-radius: 3px; }
-        .strategy-card:hover { transform: translateY(-5px); box-shadow: 0 16px 40px rgba(0,0,0,0.1) !important; }
-        .trade-row:hover { background: #eaecf5 !important; }
-        .trade-row:hover .btn-del { opacity: 1 !important; }
-        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.07) !important; }
-        .log-btn:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,128,255,0.36) !important; }
-        .pill:hover { opacity: 0.82; transform: translateY(-1px); }
-        @keyframes slideIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
-      `}</style>
       {page === null && <HomePage onSelect={setPage} tradeCounts={tradeCounts} />}
       {page === "atr-trailing" && <ATRTracker onBack={() => setPage(null)} />}
     </>
