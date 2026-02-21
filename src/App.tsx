@@ -108,7 +108,7 @@ function CalendarView({ trades }: { trades: any[] }) {
           <span style={{ fontSize: 13, fontWeight: 700, color: monthPnl >= 0 ? "#00a040" : "#ff3366" }}>
             {fmtShort(monthPnl)}
           </span>
-          <button onClick={goToday} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 6, color: TEXT_MID, padding: "3px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Today</button>
+          <button onClick={goToday} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 6, color: TEXT_MID, padding: "3px 10px", fontSize: 11, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Today</button>
           <button onClick={prevMonth} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 6, color: TEXT_MID, padding: "3px 9px", fontSize: 13, cursor: "pointer" }}>‹</button>
           <button onClick={nextMonth} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 6, color: TEXT_MID, padding: "3px 9px", fontSize: 13, cursor: "pointer" }}>›</button>
         </div>
@@ -203,7 +203,7 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
                   <input value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { onRename(s.id, renameVal); setRenaming(null); } if (e.key === "Escape") setRenaming(null); }}
                     autoFocus onClick={(e) => e.stopPropagation()}
-                    style={{ fontSize: 13, border: "1px solid #00bfff", borderRadius: 6, padding: "3px 8px", color: TEXT, width: "100%", fontFamily: "inherit" }} />
+                    style={{ fontSize: 13, border: "1px solid #00bfff", borderRadius: 6, padding: "3px 8px", color: TEXT, width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
                 ) : (
                   <>
                     <div style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{s.name}</div>
@@ -225,7 +225,7 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
             <input value={newName} onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) { onCreate(newName.trim()); setNewName(""); } }}
               placeholder='e.g. "Week of Feb 17"'
-              style={{ flex: 1, background: "#f4f6fb", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "9px 14px", fontSize: 13, fontFamily: "inherit" }} />
+              style={{ flex: 1, background: "#f4f6fb", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "9px 14px", fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
             <button onClick={() => { if (newName.trim()) { onCreate(newName.trim()); setNewName(""); } }}
               style={{ background: "linear-gradient(135deg,#00bfff,#0070ff)", border: "none", borderRadius: 8, color: "#fff", padding: "9px 20px", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "'Syne',sans-serif", letterSpacing: 1, whiteSpace: "nowrap" }}>
               + CREATE
@@ -369,7 +369,7 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
 
       {/* Header */}
       <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: "16px 28px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 2px 12px rgba(0,0,0,0.04)", flexWrap: "wrap" }}>
-        <button onClick={onBack} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>← Back</button>
         <div style={{ width: 1, height: 20, background: BORDER }} />
         <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, color: TEXT }}>
           📈 ATR <span style={{ color: "#00bfff" }}>Trailing Stop</span>
@@ -393,7 +393,7 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
             <div style={{ minWidth: 148 }}>
               <div style={{ fontSize: 10, color: TEXT_MID, marginBottom: 6, letterSpacing: 1 }}>DATE</div>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "9px 12px", fontSize: 13, width: "100%", fontFamily: "inherit" }} />
+                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "9px 12px", fontSize: 13, width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
             </div>
             <div style={{ flex: 1, minWidth: 150 }}>
               <div style={{ fontSize: 10, color: TEXT_MID, marginBottom: 6, letterSpacing: 1 }}>POINTS <span style={{ color: GOLD, fontWeight: 700 }}>◆</span></div>
@@ -402,7 +402,7 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
                 <input type="number" step="0.5" value={points} onChange={(e) => setPoints(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addTrade()}
                   placeholder="+ win  /  − loss"
-                  style={{ background: "transparent", border: "none", color: TEXT, padding: "9px 12px 9px 0", fontSize: 14, width: "100%", fontFamily: "inherit", fontWeight: 600 }} />
+                  style={{ background: "transparent", border: "none", color: TEXT, padding: "9px 12px 9px 0", fontSize: 14, width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600 }} />
               </div>
             </div>
             <div>
@@ -421,7 +421,7 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
             <div style={{ minWidth: 100 }}>
               <div style={{ fontSize: 10, color: TEXT_MID, marginBottom: 6, letterSpacing: 1 }}>/MGC CONTRACTS</div>
               <input type="number" min="1" value={contracts} onChange={(e) => setContracts(e.target.value)}
-                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "9px 12px", fontSize: 13, width: "100%", textAlign: "center", fontFamily: "inherit" }} />
+                style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "9px 12px", fontSize: 13, width: "100%", textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
             </div>
             <div style={{ minWidth: 132 }}>
               <div style={{ fontSize: 10, color: TEXT_MID, marginBottom: 6, letterSpacing: 1 }}>P&L PREVIEW</div>
@@ -479,12 +479,12 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
                     {editId === t.id ? (
                       <input type="number" step="0.5" value={editPoints} onChange={(e) => setEditPoints(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") saveEdit(t.id); if (e.key === "Escape") setEditId(null); }}
-                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 5, color: TEXT, padding: "3px 8px", fontSize: 13, width: 90, fontFamily: "inherit" }} />
+                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 5, color: TEXT, padding: "3px 8px", fontSize: 13, width: 90, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
                     ) : (
                       <span onDoubleClick={() => { setEditId(t.id); setEditPoints(String(t.points)); }}
                         title="Double-click to edit"
                         style={{ color: GOLD, fontSize: 15, fontWeight: 700, cursor: "text", fontFamily: "'Syne', sans-serif" }}>
-                        {win ? "+" : ""}{t.points} <span style={{ fontSize: 10, color: TEXT_LIGHT, fontFamily: "inherit", fontWeight: 400 }}>pts</span>
+                        {win ? "+" : ""}{t.points} <span style={{ fontSize: 10, color: TEXT_LIGHT, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400 }}>pts</span>
                       </span>
                     )}
                   </div>
