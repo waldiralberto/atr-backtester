@@ -10,7 +10,7 @@ const CARD = "#fff";
 const GOLD = "#c8900a";
 const GOLD_BG = "rgba(200,144,10,0.1)";
 const F = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-const FH = "'Syne', sans-serif";
+const FH = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
