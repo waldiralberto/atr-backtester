@@ -9,7 +9,7 @@ const BG = "#eef0f6";
 const CARD = "#fff";
 const GOLD = "#c8900a";
 const GOLD_BG = "rgba(200,144,10,0.1)";
-const F = "'Plus Jakarta Sans', sans-serif";
+const F = "'Inter', sans-serif";
 const FH = "'Syne', sans-serif";
 
 const fmt = (n: number) =>
@@ -488,8 +488,8 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&family=Syne:wght@700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        input { font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { font-family: 'Inter', sans-serif; }
+        input { font-family: 'Inter', sans-serif; }
         input:focus { outline: none !important; border-color: #00bfff !important; box-shadow: 0 0 0 3px rgba(0,191,255,0.13) !important; }
         input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.5; }
         ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #eef0f6; } ::-webkit-scrollbar-thumb { background: #c8d2e2; border-radius: 3px; }
