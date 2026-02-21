@@ -74,7 +74,7 @@ function CalendarView({ trades }: { trades: any[] }) {
     }
   });
 
-  const monthPnl = Object.values(dayMap).reduce((s, v) => s + v, 0);
+  const monthPnl = Object.values(dayMap).reduce((s: number, v: number) => s + v, 0 as number);
 
   // Build calendar grid
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
@@ -125,14 +125,14 @@ function CalendarView({ trades }: { trades: any[] }) {
 
         {/* Weeks */}
         {weeks.map((week, wi) => {
-          const weekPnl = week.reduce((s, d) => {
+          const weekPnl = week.reduce((s: number, d) => {
             if (!d) return s;
             return s + (dayMap[dateKey(d)] || 0);
-          }, 0);
-          const weekTrades = week.reduce((s, d) => {
+          }, 0 as number);
+          const weekTrades = week.reduce((s: number, d) => {
             if (!d) return s;
             return s + (dayCountMap[dateKey(d)] || 0);
-          }, 0);
+          }, 0 as number);
 
           return (
             <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr) 110px", borderBottom: wi < weeks.length - 1 ? `1px solid #f0f3fa` : "none", minHeight: 72 }}>
