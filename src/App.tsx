@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 const OZ_PER_CONTRACT = 10;
+const FEE_PER_CONTRACT = 1.24; // $1.24 per /MGC contract per trade
 const TEXT = "#1a2535";
 const TEXT_MID = "#3a4f66";
 const TEXT_LIGHT = "#6b7e96";
@@ -18,6 +19,9 @@ const fmtShort = (n: number) =>
 const today = () => new Date().toISOString().split("T")[0];
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
+// net = gross P&L minus fees
+const calcNet = (dollar: number, contracts: number) => dollar - (contracts * FEE_PER_CONTRACT);
+
 function loadSessions(): any[] {
   try { return JSON.parse(localStorage.getItem("atr-sessions-v2") || "[]"); } catch { return []; }
 }
@@ -33,113 +37,25 @@ function saveSessionTrades(id: string, trades: any[]) {
 
 function computeStats(trades: any[]) {
   if (!trades.length) return null;
-  const wins = trades.filter((t) => t.points > 0);
-  const losses = trades.filter((t) => t.points < 0);
-  const totalPnl = trades.reduce((s, t) => s + t.dollar, 0);
+  const wins = trades.filter((t) => t.net > 0);
+  const losses = trades.filter((t) => t.net <= 0);
+  const totalNet = trades.reduce((s, t) => s + t.net, 0);
+  const totalFees = trades.reduce((s, t) => s + (t.fees || 0), 0);
   let longestWin = 0, longestLoss = 0, curWin = 0, curLoss = 0;
   for (const t of trades) {
-    if (t.points > 0) { curWin++; curLoss = 0; longestWin = Math.max(longestWin, curWin); }
-    else if (t.points < 0) { curLoss++; curWin = 0; longestLoss = Math.max(longestLoss, curLoss); }
-    else { curWin = 0; curLoss = 0; }
+    if (t.net > 0) { curWin++; curLoss = 0; longestWin = Math.max(longestWin, curWin); }
+    else { curLoss++; curWin = 0; longestLoss = Math.max(longestLoss, curLoss); }
   }
-  const largestWin = wins.length ? Math.max(...wins.map((t) => t.dollar)) : 0;
-  const largestLoss = losses.length ? Math.min(...losses.map((t) => t.dollar)) : 0;
+  const largestWin = wins.length ? Math.max(...wins.map((t) => t.net)) : 0;
+  const largestLoss = losses.length ? Math.min(...losses.map((t) => t.net)) : 0;
   const days = new Set(trades.map((t) => t.date)).size;
   return {
     total: trades.length, wins: wins.length, losses: losses.length,
     winPct: ((wins.length / trades.length) * 100).toFixed(1),
-    totalPnl, avgDollar: (totalPnl / trades.length).toFixed(2),
+    totalNet, totalFees, avgNet: totalNet / trades.length,
     longestWin, longestLoss, largestWin, largestLoss,
     perDay: days ? (trades.length / days).toFixed(1) : "0",
   };
-}
-
-// ── Equity Curve ──────────────────────────────────────────────────────────────
-function EquityChart({ trades, startingEquity, targetEquity }: { trades: any[]; startingEquity: number; targetEquity: number }) {
-  const W = 900, H = 260, PAD = 52;
-
-  // Build equity points sorted by id (chronological order logged)
-  const sorted = [...trades].reverse(); // trades are stored newest-first, reverse for chrono
-  const points: number[] = [startingEquity];
-  sorted.forEach((t) => points.push(points[points.length - 1] + t.dollar));
-
-  const minVal = Math.min(...points, targetEquity) * 0.999;
-  const maxVal = Math.max(...points, targetEquity) * 1.001;
-  const range = maxVal - minVal || 1;
-
-  const toX = (i: number) => PAD + (i / Math.max(points.length - 1, 1)) * (W - PAD * 2);
-  const toY = (v: number) => PAD + (1 - (v - minVal) / range) * (H - PAD * 2);
-
-  const pathD = points.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
-  const areaD = pathD + ` L ${toX(points.length - 1).toFixed(1)} ${toY(minVal).toFixed(1)} L ${toX(0).toFixed(1)} ${toY(minVal).toFixed(1)} Z`;
-
-  const targetY = toY(targetEquity);
-  const currentEquity = points[points.length - 1];
-  const pnl = currentEquity - startingEquity;
-  const reachedTarget = currentEquity >= targetEquity;
-
-  // Y axis labels
-  const ySteps = 5;
-  const yLabels = Array.from({ length: ySteps }, (_, i) => minVal + (range * i) / (ySteps - 1));
-
-  return (
-    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)", marginBottom: 28 }}>
-      <div style={{ padding: "20px 28px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 20, background: "#f8f9fd", flexWrap: "wrap" }}>
-        <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>EQUITY CURVE</div>
-        <div style={{ display: "flex", gap: 24, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Starting</span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>{fmtShort(startingEquity)}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Current</span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: pnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(currentEquity)}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>P&L</span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: pnl >= 0 ? "#00a040" : "#ff3366" }}>{pnl >= 0 ? "+" : ""}{fmtShort(pnl)}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 24, height: 2, background: "#ff9500", borderTop: "2px dashed #ff9500" }} />
-            <span style={{ fontSize: 12, color: "#ff9500", fontWeight: 600 }}>Target {fmtShort(targetEquity)}</span>
-            {reachedTarget && <span style={{ background: "#00a04020", color: "#00a040", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>✓ REACHED</span>}
-          </div>
-        </div>
-      </div>
-      <div style={{ padding: "16px 24px 20px", overflowX: "auto" }}>
-        {trades.length === 0 ? (
-          <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_LIGHT, fontSize: 14 }}>Log trades to see your equity curve</div>
-        ) : (
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }}>
-            {/* Grid lines */}
-            {yLabels.map((v, i) => (
-              <g key={i}>
-                <line x1={PAD} y1={toY(v)} x2={W - PAD} y2={toY(v)} stroke="#eee" strokeWidth="1" />
-                <text x={PAD - 8} y={toY(v) + 4} textAnchor="end" fontSize="11" fill={TEXT_LIGHT} fontFamily={F}>{fmtShort(v)}</text>
-              </g>
-            ))}
-            {/* Area fill */}
-            <defs>
-              <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={pnl >= 0 ? "#00c060" : "#ff3366"} stopOpacity="0.18" />
-                <stop offset="100%" stopColor={pnl >= 0 ? "#00c060" : "#ff3366"} stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-            <path d={areaD} fill="url(#eqGrad)" />
-            {/* Target line */}
-            <line x1={PAD} y1={targetY} x2={W - PAD} y2={targetY} stroke="#ff9500" strokeWidth="1.5" strokeDasharray="6 4" />
-            <text x={W - PAD + 4} y={targetY + 4} fontSize="11" fill="#ff9500" fontFamily={F} fontWeight="600">Target</text>
-            {/* Equity line */}
-            <path d={pathD} fill="none" stroke={pnl >= 0 ? "#00c060" : "#ff3366"} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {/* Dots */}
-            {points.map((v, i) => (
-              <circle key={i} cx={toX(i)} cy={toY(v)} r="4" fill={i === 0 ? TEXT_LIGHT : (v >= points[i-1] ? "#00c060" : "#ff3366")} stroke={CARD} strokeWidth="2" />
-            ))}
-          </svg>
-        )}
-      </div>
-    </div>
-  );
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
@@ -153,7 +69,7 @@ function CalendarView({ trades }: { trades: any[] }) {
   trades.forEach((t) => {
     const d = new Date(t.date + "T12:00:00");
     if (d.getFullYear() === year && d.getMonth() === month) {
-      dayMap[t.date] = (dayMap[t.date] || 0) + t.dollar;
+      dayMap[t.date] = (dayMap[t.date] || 0) + t.net;
       dayCountMap[t.date] = (dayCountMap[t.date] || 0) + 1;
     }
   });
@@ -173,7 +89,7 @@ function CalendarView({ trades }: { trades: any[] }) {
   return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)", marginBottom: 28 }}>
       <div style={{ padding: "20px 28px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 16, background: "#f8f9fd" }}>
-        <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>P&L CALENDAR</div>
+        <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>P&L CALENDAR <span style={{ fontSize: 11, fontWeight: 400 }}>(net after fees)</span></div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
           <span style={{ fontSize: 18, fontWeight: 800, color: TEXT }}>{monthName}</span>
           <span style={{ fontSize: 17, fontWeight: 700, color: monthPnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(monthPnl)}</span>
@@ -235,7 +151,6 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(20,30,50,0.35)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div style={{ background: CARD, borderRadius: 20, padding: "36px 32px", width: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", border: `1px solid ${BORDER}` }} onClick={(e) => e.stopPropagation()}>
@@ -269,10 +184,8 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
                     )}
                   </div>
                   {s.id === activeId && <span style={{ fontSize: 11, color: "#00bfff", fontWeight: 700, letterSpacing: 1 }}>ACTIVE</span>}
-                  <button onClick={(e) => { e.stopPropagation(); setRenaming(renaming === s.id ? null : s.id); setRenameVal(s.name); }}
-                    style={{ background: "none", border: "none", color: TEXT_LIGHT, cursor: "pointer", fontSize: 15, padding: "4px 8px", borderRadius: 6 }} title="Rename">✏️</button>
-                  <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(s.id); }}
-                    style={{ background: "none", border: "none", color: "#ff3366", cursor: "pointer", fontSize: 18, padding: "4px 8px", borderRadius: 6, lineHeight: 1 }} title="Delete">🗑</button>
+                  <button onClick={(e) => { e.stopPropagation(); setRenaming(renaming === s.id ? null : s.id); setRenameVal(s.name); }} style={{ background: "none", border: "none", color: TEXT_LIGHT, cursor: "pointer", fontSize: 15, padding: "4px 8px", borderRadius: 6 }}>✏️</button>
+                  <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(s.id); }} style={{ background: "none", border: "none", color: "#ff3366", cursor: "pointer", fontSize: 18, padding: "4px 8px", borderRadius: 6, lineHeight: 1 }}>🗑</button>
                 </div>
               )}
             </div>
@@ -299,19 +212,20 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
 // ── CSV Import Modal ──────────────────────────────────────────────────────────
 function CSVImportModal({ onImport, onClose }: { onImport: (trades: any[]) => void; onClose: () => void }) {
   const [preview, setPreview] = useState<any[]>([]);
+  const [parsedAll, setParsedAll] = useState<any[]>([]);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const parseCSV = (text: string) => {
-    setError(""); setPreview([]);
+    setError(""); setPreview([]); setParsedAll([]);
     const lines = text.trim().split("\n");
     if (lines.length < 2) { setError("File appears empty or invalid."); return; }
     const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, "").toLowerCase());
 
-    // Find P&L and date columns — support Topstep and common formats
     const pnlIdx = headers.findIndex(h => h.includes("p&l") || h === "pnl" || h === "profit" || h === "net p&l");
     const dateIdx = headers.findIndex(h => h.includes("entry time") || h.includes("date") || h.includes("time"));
     const sizeIdx = headers.findIndex(h => h === "size" || h.includes("qty") || h.includes("quantity") || h.includes("contracts"));
+    const feesIdx = headers.findIndex(h => h === "fees" || h.includes("fee") || h.includes("commission"));
 
     if (pnlIdx === -1) { setError("Could not find a P&L column. Expected columns like 'P&L', 'Net P&L', or 'Profit'."); return; }
 
@@ -319,85 +233,89 @@ function CSVImportModal({ onImport, onClose }: { onImport: (trades: any[]) => vo
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g, ""));
       if (cols.length < 2) continue;
-      const rawPnl = parseFloat(cols[pnlIdx]?.replace(/[$,]/g, "") || "");
-      if (isNaN(rawPnl)) continue;
+      const grossPnl = parseFloat(cols[pnlIdx]?.replace(/[$,]/g, "") || "");
+      if (isNaN(grossPnl)) continue;
 
       let tradeDate = today();
       if (dateIdx !== -1 && cols[dateIdx]) {
-        const raw = cols[dateIdx];
-        const d = new Date(raw);
+        const d = new Date(cols[dateIdx]);
         if (!isNaN(d.getTime())) tradeDate = d.toISOString().split("T")[0];
       }
 
       const contracts = sizeIdx !== -1 ? (parseInt(cols[sizeIdx]) || 1) : 1;
-      // Reverse-engineer points from P&L and contracts
-      const points = rawPnl / (OZ_PER_CONTRACT * contracts);
 
-      parsed.push({ id: Date.now() + i, date: tradeDate, points: parseFloat(points.toFixed(2)), contracts, dollar: rawPnl });
+      // If CSV has a fees column, use it; otherwise calculate from contract count
+      let csvFees = 0;
+      if (feesIdx !== -1 && cols[feesIdx]) {
+        csvFees = Math.abs(parseFloat(cols[feesIdx]?.replace(/[$,]/g, "") || "0"));
+      } else {
+        csvFees = contracts * FEE_PER_CONTRACT;
+      }
+
+      // Topstep P&L column is GROSS (fees shown separately), so net = grossPnl - fees
+      const net = grossPnl - csvFees;
+      const points = parseFloat((grossPnl / (OZ_PER_CONTRACT * contracts)).toFixed(2));
+
+      parsed.push({
+        id: Date.now() + i,
+        date: tradeDate,
+        points,
+        contracts,
+        dollar: grossPnl,
+        fees: csvFees,
+        net,
+      });
     }
 
-    if (!parsed.length) { setError("No valid trades found. Make sure your CSV has P&L data."); return; }
+    if (!parsed.length) { setError("No valid trades found."); return; }
+    setParsedAll(parsed);
     setPreview(parsed.slice(0, 5));
-    return parsed;
   };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      parseCSV(text);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleImport = () => {
-    const file = fileRef.current?.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const trades = parseCSV(text);
-      if (trades && trades.length) { onImport(trades); onClose(); }
-    };
+    reader.onload = (ev) => parseCSV(ev.target?.result as string);
     reader.readAsText(file);
   };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(20,30,50,0.35)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
-      <div style={{ background: CARD, borderRadius: 20, padding: "36px 32px", width: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", border: `1px solid ${BORDER}` }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: CARD, borderRadius: 20, padding: "36px 32px", width: 560, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", border: `1px solid ${BORDER}` }} onClick={e => e.stopPropagation()}>
         <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, marginBottom: 8 }}>Import from CSV</div>
-        <div style={{ fontSize: 14, color: TEXT_LIGHT, marginBottom: 8 }}>Supports Topstep CSV exports. Needs a <strong>P&L</strong> column and optionally a date/size column.</div>
+        <div style={{ fontSize: 14, color: TEXT_LIGHT, marginBottom: 8 }}>Supports Topstep CSV exports. Fees of <strong>${FEE_PER_CONTRACT}/contract</strong> are automatically deducted.</div>
         <div style={{ fontSize: 12, color: TEXT_LIGHT, marginBottom: 24, background: "#f5f7fc", padding: "10px 14px", borderRadius: 8 }}>
-          In Topstep: Dashboard → Trading History → Export → Download CSV
+          Topstep: Performance tab → Trades → Export CSV
         </div>
-
         <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile}
           style={{ display: "block", marginBottom: 16, fontSize: 14, color: TEXT }} />
-
         {error && <div style={{ color: "#ff3366", fontSize: 13, marginBottom: 16, padding: "10px 14px", background: "rgba(255,51,102,0.07)", borderRadius: 8 }}>{error}</div>}
-
         {preview.length > 0 && (
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 700, marginBottom: 8 }}>PREVIEW (first 5 trades)</div>
+            <div style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 700, marginBottom: 8 }}>PREVIEW — {parsedAll.length} trades found (showing first 5)</div>
             <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${BORDER}` }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 90px 70px 90px", padding: "8px 14px", background: "#f5f7fc", fontSize: 11, color: TEXT_LIGHT, fontWeight: 700 }}>
+                <div>DATE</div><div>PTS</div><div>GROSS</div><div>FEES</div><div>NET</div>
+              </div>
               {preview.map((t, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "9px 14px", background: i % 2 === 0 ? CARD : "#fafbfd", fontSize: 13, gap: 8, alignItems: "center" }}>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 90px 70px 90px", padding: "9px 14px", background: i % 2 === 0 ? CARD : "#fafbfd", fontSize: 13, gap: 8, alignItems: "center" }}>
                   <div style={{ color: TEXT_MID }}>{t.date}</div>
-                  <div style={{ color: GOLD, fontWeight: 600 }}>{t.points > 0 ? "+" : ""}{t.points} pts</div>
-                  <div style={{ color: t.dollar >= 0 ? "#00a040" : "#ff3366", fontWeight: 700, textAlign: "right" }}>{fmt(t.dollar)}</div>
+                  <div style={{ color: GOLD, fontWeight: 600 }}>{t.points > 0 ? "+" : ""}{t.points}</div>
+                  <div style={{ color: t.dollar >= 0 ? "#00a040" : "#ff3366", fontWeight: 600 }}>{fmt(t.dollar)}</div>
+                  <div style={{ color: "#ff6633" }}>-{fmt(t.fees)}</div>
+                  <div style={{ color: t.net >= 0 ? "#00a040" : "#ff3366", fontWeight: 700 }}>{fmt(t.net)}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
-
         <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT_MID, padding: "12px 22px", fontSize: 14, cursor: "pointer" }}>Cancel</button>
-          <button onClick={handleImport} disabled={preview.length === 0}
-            style={{ background: preview.length > 0 ? "linear-gradient(135deg,#00bfff,#0070ff)" : BORDER, border: "none", borderRadius: 10, color: preview.length > 0 ? "#fff" : TEXT_LIGHT, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: preview.length > 0 ? "pointer" : "default" }}>
-            Import Trades
+          <button onClick={() => { if (parsedAll.length) { onImport(parsedAll); onClose(); } }}
+            disabled={parsedAll.length === 0}
+            style={{ background: parsedAll.length > 0 ? "linear-gradient(135deg,#00bfff,#0070ff)" : BORDER, border: "none", borderRadius: 10, color: parsedAll.length > 0 ? "#fff" : TEXT_LIGHT, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: parsedAll.length > 0 ? "pointer" : "default" }}>
+            Import {parsedAll.length > 0 ? `${parsedAll.length} Trades` : ""}
           </button>
         </div>
       </div>
@@ -445,21 +363,17 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
   const deleteSession = (id: string) => {
     const u = sessions.filter((s) => s.id !== id);
     if (!u.length) { showToast("Can't delete the only session", "error"); return; }
-    setSessions(u); saveSessions(u); localStorage.removeItem(`atr-sess-${id}`);
-    switchSession(u[0].id); showToast("Session deleted");
+    setSessions(u); saveSessions(u); localStorage.removeItem(`atr-sess-${id}`); switchSession(u[0].id); showToast("Session deleted");
   };
   const saveTrades = useCallback((u: any[], id: string) => { saveSessionTrades(id, u); }, []);
   const showToast = (msg: string, type = "success") => { setToast({ msg, type }); setTimeout(() => setToast(null), 2500); };
-
   const saveEquitySettings = () => {
     const start = parseFloat(tempStart) || 50000;
     const target = parseFloat(tempTarget) || 53000;
     setStartingEquity(start); setTargetEquity(target);
     localStorage.setItem("atr-equity-settings", JSON.stringify({ start, target }));
-    setEditingEquity(false);
-    showToast("Equity settings saved");
+    setEditingEquity(false); showToast("Equity settings saved");
   };
-
   const importTrades = (newTrades: any[]) => {
     const u = [...newTrades, ...trades];
     setTrades(u); saveTrades(u, activeId);
@@ -469,15 +383,19 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
   const pointsNum = parseFloat(points);
   const contractsNum = parseInt(contracts) || 1;
   const pointsValid = !isNaN(pointsNum) && pointsNum !== 0;
-  const previewDollar = pointsValid ? pointsNum * OZ_PER_CONTRACT * contractsNum : null;
-  const isWin = pointsValid ? pointsNum > 0 : null;
+  const grossDollar = pointsValid ? pointsNum * OZ_PER_CONTRACT * contractsNum : null;
+  const feesAmount = contractsNum * FEE_PER_CONTRACT;
+  const previewNet = grossDollar !== null ? grossDollar - feesAmount : null;
+  const isWin = previewNet !== null ? previewNet > 0 : null;
 
   const addTrade = () => {
     if (!pointsValid) return showToast("Enter a non-zero points value", "error");
     const dollar = pointsNum * OZ_PER_CONTRACT * contractsNum;
-    const u = [{ id: Date.now(), date, points: pointsNum, contracts: contractsNum, dollar }, ...trades];
+    const fees = contractsNum * FEE_PER_CONTRACT;
+    const net = dollar - fees;
+    const u = [{ id: Date.now(), date, points: pointsNum, contracts: contractsNum, dollar, fees, net }, ...trades];
     setTrades(u); saveTrades(u, activeId); setPoints("");
-    showToast(dollar > 0 ? `+${fmt(dollar)} logged` : `${fmt(dollar)} logged`, dollar > 0 ? "success" : "loss");
+    showToast(net > 0 ? `+${fmt(net)} logged (after fees)` : `${fmt(net)} logged (after fees)`, net > 0 ? "success" : "loss");
   };
   const deleteTrade = (id: number) => { const u = trades.filter((t) => t.id !== id); setTrades(u); saveTrades(u, activeId); showToast("Trade removed"); };
   const startEdit = (t: any, field: "points"|"date") => { setEditingId(t.id); setEditingField(field); if (field === "points") setEditPoints(String(t.points)); if (field === "date") setEditDate(t.date); };
@@ -485,14 +403,19 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
   const commitEdit = (id: number) => {
     const u = trades.map((t) => {
       if (t.id !== id) return t;
-      if (editingField === "points") { const p = parseFloat(editPoints); if (isNaN(p) || p === 0) return t; return { ...t, points: p, dollar: p * OZ_PER_CONTRACT * t.contracts }; }
+      if (editingField === "points") {
+        const p = parseFloat(editPoints); if (isNaN(p) || p === 0) return t;
+        const dollar = p * OZ_PER_CONTRACT * t.contracts;
+        const fees = t.contracts * FEE_PER_CONTRACT;
+        return { ...t, points: p, dollar, fees, net: dollar - fees };
+      }
       if (editingField === "date") return { ...t, date: editDate };
       return t;
     });
     setTrades(u); saveTrades(u, activeId); cancelEdit(); showToast("Trade updated");
   };
 
-  const displayed = trades.filter((t) => filter === "wins" ? t.points > 0 : filter === "losses" ? t.points < 0 : true);
+  const displayed = trades.filter((t) => filter === "wins" ? t.net > 0 : filter === "losses" ? t.net <= 0 : true);
   const stats = computeStats(trades);
   const activeSession = sessions.find((s) => s.id === activeId);
 
@@ -512,13 +435,17 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
       <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: "20px 36px", display: "flex", alignItems: "center", gap: 18, boxShadow: "0 2px 12px rgba(0,0,0,0.04)", flexWrap: "wrap" }}>
         <button onClick={onBack} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT_MID, padding: "10px 20px", fontSize: 14, cursor: "pointer", fontWeight: 600 }}>← Back</button>
         <div style={{ width: 1, height: 28, background: BORDER }} />
-        {/* Clickable title → home */}
         <div onClick={onBack} style={{ fontWeight: 800, fontSize: 22, color: TEXT, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
           📈 ATR <span style={{ color: "#00bfff" }}>Trailing Stop</span>
         </div>
         <div style={{ fontSize: 13, color: TEXT_LIGHT, letterSpacing: 1 }}>· 7MIN · /MGC · $10/PT/CTR</div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          {stats && <span style={{ fontSize: 16, color: stats.totalPnl >= 0 ? "#00a040" : "#ff3366", fontWeight: 700 }}>{fmt(stats.totalPnl)}</span>}
+          {stats && (
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 16, color: stats.totalNet >= 0 ? "#00a040" : "#ff3366", fontWeight: 700 }}>{fmt(stats.totalNet)}</div>
+              <div style={{ fontSize: 10, color: TEXT_LIGHT }}>net after fees</div>
+            </div>
+          )}
           <button onClick={() => setShowCSV(true)} style={{ background: "#f0f6ff", border: `1px solid #c0d8ff`, borderRadius: 10, color: "#0070ff", padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
             ⬆ Import CSV
           </button>
@@ -559,12 +486,12 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
               <input type="number" min="1" value={contracts} onChange={(e) => setContracts(e.target.value)}
                 style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, padding: "13px 16px", fontSize: 15, width: "100%", textAlign: "center" }} />
             </div>
-            <div style={{ minWidth: 150 }}>
-              <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>P&L PREVIEW</div>
-              <div style={{ padding: "13px 18px", background: "#f5f7fc", border: `2px solid ${previewDollar !== null ? (previewDollar > 0 ? "#00c060" : "#ff3366") : BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 700, textAlign: "right", color: previewDollar !== null ? (previewDollar > 0 ? "#00a040" : "#ff3366") : TEXT_LIGHT, transition: "all 0.2s" }}>
-                {previewDollar !== null ? fmt(previewDollar) : "$—"}
+            <div style={{ minWidth: 160 }}>
+              <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>NET P&L <span style={{ fontSize: 11, color: TEXT_LIGHT, fontWeight: 400 }}>(after fees)</span></div>
+              <div style={{ padding: "13px 18px", background: "#f5f7fc", border: `2px solid ${previewNet !== null ? (previewNet > 0 ? "#00c060" : "#ff3366") : BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 700, textAlign: "right", color: previewNet !== null ? (previewNet > 0 ? "#00a040" : "#ff3366") : TEXT_LIGHT, transition: "all 0.2s" }}>
+                {previewNet !== null ? fmt(previewNet) : "$—"}
               </div>
-              {previewDollar !== null && <div style={{ fontSize: 11, color: TEXT_LIGHT, marginTop: 5, textAlign: "center" }}>{pointsNum > 0 ? "+" : ""}{pointsNum} pts × {contractsNum}x</div>}
+              {previewNet !== null && <div style={{ fontSize: 10, color: TEXT_LIGHT, marginTop: 5, textAlign: "center" }}>gross {fmt(grossDollar!)} − fees {fmt(feesAmount)}</div>}
             </div>
             <button onClick={addTrade} className="log-btn"
               style={{ background: "linear-gradient(135deg,#00bfff,#0070ff)", border: "none", borderRadius: 10, color: "#fff", padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,128,255,0.26)", whiteSpace: "nowrap", transition: "all .15s" }}>
@@ -585,53 +512,57 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
             <div style={{ marginLeft: "auto", fontSize: 13, color: TEXT_LIGHT }}>{displayed.length} trades · {activeSession?.name}</div>
           </div>
           <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "44px 160px 1fr 80px 130px 80px 44px", padding: "14px 24px", borderBottom: `1px solid ${BORDER}`, background: "#f5f7fc" }}>
-              {["#","DATE","POINTS","CTRS","P&L","RESULT",""].map((h) => (
-                <div key={h} style={{ fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>{h}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "40px 140px 1fr 70px 110px 90px 80px 70px 40px", padding: "12px 20px", borderBottom: `1px solid ${BORDER}`, background: "#f5f7fc" }}>
+              {["#","DATE","POINTS","CTRS","GROSS","FEES","NET","WIN/L",""].map((h) => (
+                <div key={h} style={{ fontSize: 11, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>{h}</div>
               ))}
             </div>
             {displayed.length === 0 && (
               <div style={{ padding: "48px 20px", textAlign: "center", color: TEXT_LIGHT, fontSize: 15 }}>No trades yet — log one above ↑</div>
             )}
             {displayed.map((t, i) => {
-              const win = t.points > 0;
+              const win = (t.net ?? t.dollar) > 0;
+              const fees = t.fees ?? (t.contracts * FEE_PER_CONTRACT);
+              const net = t.net ?? (t.dollar - fees);
               const isEditPts = editingId === t.id && editingField === "points";
               const isEditDate = editingId === t.id && editingField === "date";
               return (
-                <div key={t.id} className="trade-row" style={{ display: "grid", gridTemplateColumns: "44px 160px 1fr 80px 130px 80px 44px", padding: "14px 24px", borderBottom: `1px solid #f0f3fa`, alignItems: "center", background: i % 2 === 0 ? CARD : "#fafbfd", transition: "background 0.1s" }}>
-                  <div style={{ color: TEXT_LIGHT, fontSize: 13 }}>{displayed.length - i}</div>
+                <div key={t.id} className="trade-row" style={{ display: "grid", gridTemplateColumns: "40px 140px 1fr 70px 110px 90px 80px 70px 40px", padding: "13px 20px", borderBottom: `1px solid #f0f3fa`, alignItems: "center", background: i % 2 === 0 ? CARD : "#fafbfd", transition: "background 0.1s" }}>
+                  <div style={{ color: TEXT_LIGHT, fontSize: 12 }}>{displayed.length - i}</div>
                   <div>
                     {isEditDate ? (
                       <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") commitEdit(t.id); if (e.key === "Escape") cancelEdit(); }}
-                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 10px", fontSize: 13 }} />
+                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 10px", fontSize: 12 }} />
                     ) : (
                       <span onDoubleClick={() => startEdit(t, "date")} title="Double-click to edit"
-                        style={{ color: TEXT_MID, fontSize: 14, cursor: "text", borderBottom: `1px dashed ${BORDER}`, paddingBottom: 1 }}>{t.date}</span>
+                        style={{ color: TEXT_MID, fontSize: 13, cursor: "text", borderBottom: `1px dashed ${BORDER}`, paddingBottom: 1 }}>{t.date}</span>
                     )}
                   </div>
                   <div>
                     {isEditPts ? (
                       <input type="number" step="0.5" value={editPoints} onChange={(e) => setEditPoints(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") commitEdit(t.id); if (e.key === "Escape") cancelEdit(); }}
-                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 12px", fontSize: 15, width: 100 }} />
+                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 12px", fontSize: 14, width: 90 }} />
                     ) : (
                       <span onDoubleClick={() => startEdit(t, "points")} title="Double-click to edit"
-                        style={{ color: GOLD, fontSize: 16, fontWeight: 700, cursor: "text", borderBottom: `1px dashed ${BORDER}`, paddingBottom: 1 }}>
-                        {win ? "+" : ""}{t.points} <span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 400 }}>pts</span>
+                        style={{ color: GOLD, fontSize: 15, fontWeight: 700, cursor: "text", borderBottom: `1px dashed ${BORDER}`, paddingBottom: 1 }}>
+                        {t.points > 0 ? "+" : ""}{t.points} <span style={{ fontSize: 11, color: TEXT_LIGHT, fontWeight: 400 }}>pts</span>
                       </span>
                     )}
                   </div>
-                  <div style={{ color: TEXT_MID, fontSize: 14 }}>{t.contracts}x</div>
-                  <div style={{ color: win ? "#00a040" : "#ff3366", fontSize: 15, fontWeight: 700 }}>{fmt(t.dollar)}</div>
-                  <div><span style={{ background: win ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.08)", color: win ? "#00a040" : "#ff3366", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700 }}>{win ? "WIN" : "LOSS"}</span></div>
+                  <div style={{ color: TEXT_MID, fontSize: 13 }}>{t.contracts}x</div>
+                  <div style={{ color: t.dollar >= 0 ? "#3a8c5a" : "#cc2244", fontSize: 13, fontWeight: 600 }}>{fmt(t.dollar)}</div>
+                  <div style={{ color: "#ff6633", fontSize: 12 }}>-{fmt(fees)}</div>
+                  <div style={{ color: win ? "#00a040" : "#ff3366", fontSize: 14, fontWeight: 700 }}>{fmt(net)}</div>
+                  <div><span style={{ background: win ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.08)", color: win ? "#00a040" : "#ff3366", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{win ? "WIN" : "LOSS"}</span></div>
                   <div><button className="btn-del" onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", color: "#ff3366", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1, opacity: 0, transition: "opacity 0.15s" }}>×</button></div>
                 </div>
               );
             })}
             {displayed.length > 0 && (
               <div style={{ padding: "10px 24px", background: "#f8f9fd", borderTop: `1px solid ${BORDER}`, fontSize: 11, color: TEXT_LIGHT, textAlign: "center" }}>
-                Double-click DATE or POINTS to edit · Enter to save · Esc to cancel
+                Double-click DATE or POINTS to edit · NET = Gross − ${FEE_PER_CONTRACT}/contract fees
               </div>
             )}
           </div>
@@ -639,23 +570,25 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
 
         {/* ③ STATS */}
         {stats && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 26 }}>
-            {[
-              { label: "WIN RATE", value: `${stats.winPct}%`, sub: `${stats.wins}W / ${stats.losses}L`, color: parseFloat(stats.winPct) >= 50 ? "#00b050" : "#ff3366" },
-              { label: "TOTAL P&L", value: fmt(stats.totalPnl), sub: `avg ${fmt(parseFloat(stats.avgDollar))}/trade`, color: stats.totalPnl >= 0 ? "#00bfff" : "#ff3366" },
-              { label: "BEST TRADE", value: fmt(stats.largestWin), sub: "single trade", color: "#00b050" },
-              { label: "WORST TRADE", value: fmt(stats.largestLoss), sub: "single trade", color: "#ff3366" },
-              { label: "WIN STREAK", value: String(stats.longestWin), sub: "consecutive", color: GOLD },
-              { label: "LOSS STREAK", value: String(stats.longestLoss), sub: "consecutive", color: "#ff6633" },
-              { label: "AVG / DAY", value: stats.perDay, sub: "trades/session", color: "#aa66ff" },
-              { label: "TOTAL TRADES", value: String(stats.total), sub: "this session", color: "#00bfff" },
-            ].map((s) => (
-              <div key={s.label} className="stat-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: "20px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
-                <div style={{ fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, marginBottom: 12, fontWeight: 700 }}>{s.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1.2 }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 8 }}>{s.sub}</div>
-              </div>
-            ))}
+          <div style={{ marginBottom: 26 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 12 }}>
+              {[
+                { label: "WIN RATE", value: `${stats.winPct}%`, sub: `${stats.wins}W / ${stats.losses}L`, color: parseFloat(stats.winPct) >= 50 ? "#00b050" : "#ff3366" },
+                { label: "NET P&L", value: fmt(stats.totalNet), sub: "after all fees", color: stats.totalNet >= 0 ? "#00bfff" : "#ff3366" },
+                { label: "TOTAL FEES", value: fmt(stats.totalFees), sub: `$${FEE_PER_CONTRACT}/contract`, color: "#ff6633" },
+                { label: "AVG NET/TRADE", value: fmt(stats.avgNet), sub: "after fees", color: stats.avgNet >= 0 ? "#00a040" : "#ff3366" },
+                { label: "BEST TRADE", value: fmt(stats.largestWin), sub: "net", color: "#00b050" },
+                { label: "WORST TRADE", value: fmt(stats.largestLoss), sub: "net", color: "#ff3366" },
+                { label: "WIN STREAK", value: String(stats.longestWin), sub: "consecutive", color: GOLD },
+                { label: "TOTAL TRADES", value: String(stats.total), sub: `avg ${stats.perDay}/day`, color: "#00bfff" },
+              ].map((s) => (
+                <div key={s.label} className="stat-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
+                  <div style={{ fontSize: 11, letterSpacing: 1, color: TEXT_LIGHT, marginBottom: 10, fontWeight: 700 }}>{s.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color, lineHeight: 1.2 }}>{s.value}</div>
+                  <div style={{ fontSize: 11, color: TEXT_LIGHT, marginTop: 7 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -663,22 +596,19 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
         <CalendarView trades={trades} />
 
         {/* ⑤ EQUITY CURVE */}
-        {/* Equity settings */}
-        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)", marginBottom: 0 }}>
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)", marginBottom: 28 }}>
           <div style={{ padding: "20px 28px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 20, background: "#f8f9fd", flexWrap: "wrap" }}>
-            <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>EQUITY CURVE</div>
+            <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>EQUITY CURVE <span style={{ fontSize: 11, fontWeight: 400 }}>(net after fees)</span></div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
               {editingEquity ? (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 600 }}>Starting $</span>
-                    <input type="number" value={tempStart} onChange={e => setTempStart(e.target.value)}
-                      style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "6px 12px", fontSize: 14, width: 110 }} />
+                    <input type="number" value={tempStart} onChange={e => setTempStart(e.target.value)} style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "6px 12px", fontSize: 14, width: 110 }} />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 600 }}>Target $</span>
-                    <input type="number" value={tempTarget} onChange={e => setTempTarget(e.target.value)}
-                      style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "6px 12px", fontSize: 14, width: 110 }} />
+                    <input type="number" value={tempTarget} onChange={e => setTempTarget(e.target.value)} style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "6px 12px", fontSize: 14, width: 110 }} />
                   </div>
                   <button onClick={saveEquitySettings} style={{ background: "#00bfff", border: "none", borderRadius: 8, color: "#fff", padding: "7px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Save</button>
                   <button onClick={() => setEditingEquity(false)} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 14px", fontSize: 13, cursor: "pointer" }}>Cancel</button>
@@ -693,11 +623,17 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
                     <div style={{ width: 18, height: 0, borderTop: "2px dashed #ff9500" }} />
                     <span style={{ fontSize: 12, color: "#ff9500", fontWeight: 600 }}>Target {fmtShort(targetEquity)}</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Current</span>
-                    {(() => { const cur = startingEquity + trades.reduce((s,t) => s+t.dollar,0); const pnl = cur - startingEquity; return <span style={{ fontSize: 15, fontWeight: 700, color: pnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(cur)} ({pnl >= 0 ? "+" : ""}{fmtShort(pnl)})</span>; })()}
-                  </div>
-                  {startingEquity + trades.reduce((s,t) => s+t.dollar,0) >= targetEquity && (
+                  {(() => {
+                    const cur = startingEquity + trades.reduce((s,t) => s + (t.net ?? t.dollar), 0);
+                    const pnl = cur - startingEquity;
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Current</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: pnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(cur)} ({pnl >= 0 ? "+" : ""}{fmtShort(pnl)})</span>
+                      </div>
+                    );
+                  })()}
+                  {startingEquity + trades.reduce((s,t) => s + (t.net ?? t.dollar), 0) >= targetEquity && (
                     <span style={{ background: "#00a04020", color: "#00a040", padding: "3px 10px", borderRadius: 10, fontSize: 12, fontWeight: 700 }}>✓ TARGET REACHED</span>
                   )}
                   <button onClick={() => setEditingEquity(true)} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>✏️ Edit</button>
@@ -705,25 +641,24 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
               )}
             </div>
           </div>
-          <div style={{ padding: "16px 24px 20px", overflowX: "auto" }}>
+          <div style={{ padding: "16px 24px 20px" }}>
             {trades.length === 0 ? (
               <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_LIGHT, fontSize: 14 }}>Log trades to see your equity curve</div>
             ) : (() => {
-              const W = 900, H = 260, PAD = 64;
+              const W = 900, H = 260, PAD = 68;
               const sorted = [...trades].reverse();
-              const points: number[] = [startingEquity];
-              sorted.forEach((t) => points.push(points[points.length - 1] + t.dollar));
-              const minVal = Math.min(...points, targetEquity) * 0.998;
-              const maxVal = Math.max(...points, targetEquity) * 1.002;
+              const pts: number[] = [startingEquity];
+              sorted.forEach((t) => pts.push(pts[pts.length - 1] + (t.net ?? t.dollar)));
+              const minVal = Math.min(...pts, targetEquity) * 0.998;
+              const maxVal = Math.max(...pts, targetEquity) * 1.002;
               const range = maxVal - minVal || 1;
-              const toX = (i: number) => PAD + (i / Math.max(points.length - 1, 1)) * (W - PAD * 2);
+              const toX = (i: number) => PAD + (i / Math.max(pts.length - 1, 1)) * (W - PAD * 2);
               const toY = (v: number) => PAD + (1 - (v - minVal) / range) * (H - PAD * 2);
-              const pathD = points.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
-              const areaD = pathD + ` L ${toX(points.length - 1).toFixed(1)} ${toY(minVal).toFixed(1)} L ${toX(0).toFixed(1)} ${toY(minVal).toFixed(1)} Z`;
+              const pathD = pts.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
+              const areaD = pathD + ` L ${toX(pts.length-1).toFixed(1)} ${toY(minVal).toFixed(1)} L ${toX(0).toFixed(1)} ${toY(minVal).toFixed(1)} Z`;
               const targetY = toY(targetEquity);
-              const pnl = points[points.length-1] - startingEquity;
-              const ySteps = 5;
-              const yLabels = Array.from({ length: ySteps }, (_, i) => minVal + (range * i) / (ySteps - 1));
+              const pnl = pts[pts.length-1] - startingEquity;
+              const yLabels = Array.from({ length: 5 }, (_, i) => minVal + (range * i) / 4);
               return (
                 <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }}>
                   <defs>
@@ -742,8 +677,8 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
                   <line x1={PAD} y1={targetY} x2={W-PAD} y2={targetY} stroke="#ff9500" strokeWidth="1.5" strokeDasharray="6 4" />
                   <text x={W-PAD+6} y={targetY+4} fontSize="11" fill="#ff9500" fontWeight="600">Target</text>
                   <path d={pathD} fill="none" stroke={pnl >= 0 ? "#00c060" : "#ff3366"} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-                  {points.map((v, i) => (
-                    <circle key={i} cx={toX(i)} cy={toY(v)} r={i === 0 || i === points.length-1 ? 5 : 3.5} fill={i === 0 ? TEXT_LIGHT : (v >= points[i-1] ? "#00c060" : "#ff3366")} stroke={CARD} strokeWidth="2" />
+                  {pts.map((v, i) => (
+                    <circle key={i} cx={toX(i)} cy={toY(v)} r={i === 0 || i === pts.length-1 ? 5 : 3.5} fill={i === 0 ? TEXT_LIGHT : (v >= pts[i-1] ? "#00c060" : "#ff3366")} stroke={CARD} strokeWidth="2" />
                   ))}
                 </svg>
               );
@@ -751,8 +686,8 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <div style={{ textAlign: "center", margin: "24px 0 4px", fontSize: 12, color: TEXT_LIGHT }}>
-          /MGC = $10 per point per contract · Data saved to browser
+        <div style={{ textAlign: "center", marginBottom: 28, fontSize: 12, color: TEXT_LIGHT }}>
+          /MGC = $10/pt/contract · Fees = ${FEE_PER_CONTRACT}/contract/trade · All P&L shown net after fees
         </div>
       </div>
     </div>
@@ -761,8 +696,8 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
 
 // ── Home Page ─────────────────────────────────────────────────────────────────
 const STRATEGIES = [
-  { id: "atr-trailing", name: "ATR Trailing Stop", tag: "7MIN · /MGC", description: "ATR trailing stop strategy. Log points manually — positive = win, negative = loss. Auto-calculates P&L per /MGC micro contract.", color: "#00bfff", icon: "📈" },
-  { id: "cs1", name: "EMA Crossover", tag: "COMING SOON", description: "5 EMA / 20 EMA crossover strategy tracker. Log crossover signals and track performance over time.", color: "#aa66ff", icon: "🔀", locked: true },
+  { id: "atr-trailing", name: "ATR Trailing Stop", tag: "7MIN · /MGC", description: "ATR trailing stop strategy. Log points manually — positive = win, negative = loss. Auto-calculates P&L net of $1.24/contract fees.", color: "#00bfff", icon: "📈" },
+  { id: "cs1", name: "EMA Crossover", tag: "COMING SOON", description: "5 EMA / 20 EMA crossover strategy tracker.", color: "#aa66ff", icon: "🔀", locked: true },
   { id: "cs2", name: "Support & Resistance", tag: "COMING SOON", description: "Key level bounce and break strategy. Track entries off major S/R zones with defined risk.", color: "#ff6633", icon: "⚡", locked: true },
 ];
 
