@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const OZ_PER_CONTRACT = 10;
 const TEXT = "#1a2535";
@@ -10,7 +10,6 @@ const CARD = "#fff";
 const GOLD = "#c8900a";
 const GOLD_BG = "rgba(200,144,10,0.1)";
 const F = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-const FH = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
@@ -55,6 +54,95 @@ function computeStats(trades: any[]) {
   };
 }
 
+// ── Equity Curve ──────────────────────────────────────────────────────────────
+function EquityChart({ trades, startingEquity, targetEquity }: { trades: any[]; startingEquity: number; targetEquity: number }) {
+  const W = 900, H = 260, PAD = 52;
+
+  // Build equity points sorted by id (chronological order logged)
+  const sorted = [...trades].reverse(); // trades are stored newest-first, reverse for chrono
+  const points: number[] = [startingEquity];
+  sorted.forEach((t) => points.push(points[points.length - 1] + t.dollar));
+
+  const minVal = Math.min(...points, targetEquity) * 0.999;
+  const maxVal = Math.max(...points, targetEquity) * 1.001;
+  const range = maxVal - minVal || 1;
+
+  const toX = (i: number) => PAD + (i / Math.max(points.length - 1, 1)) * (W - PAD * 2);
+  const toY = (v: number) => PAD + (1 - (v - minVal) / range) * (H - PAD * 2);
+
+  const pathD = points.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
+  const areaD = pathD + ` L ${toX(points.length - 1).toFixed(1)} ${toY(minVal).toFixed(1)} L ${toX(0).toFixed(1)} ${toY(minVal).toFixed(1)} Z`;
+
+  const targetY = toY(targetEquity);
+  const currentEquity = points[points.length - 1];
+  const pnl = currentEquity - startingEquity;
+  const reachedTarget = currentEquity >= targetEquity;
+
+  // Y axis labels
+  const ySteps = 5;
+  const yLabels = Array.from({ length: ySteps }, (_, i) => minVal + (range * i) / (ySteps - 1));
+
+  return (
+    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)", marginBottom: 28 }}>
+      <div style={{ padding: "20px 28px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 20, background: "#f8f9fd", flexWrap: "wrap" }}>
+        <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>EQUITY CURVE</div>
+        <div style={{ display: "flex", gap: 24, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Starting</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>{fmtShort(startingEquity)}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Current</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: pnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(currentEquity)}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>P&L</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: pnl >= 0 ? "#00a040" : "#ff3366" }}>{pnl >= 0 ? "+" : ""}{fmtShort(pnl)}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 24, height: 2, background: "#ff9500", borderTop: "2px dashed #ff9500" }} />
+            <span style={{ fontSize: 12, color: "#ff9500", fontWeight: 600 }}>Target {fmtShort(targetEquity)}</span>
+            {reachedTarget && <span style={{ background: "#00a04020", color: "#00a040", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>✓ REACHED</span>}
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "16px 24px 20px", overflowX: "auto" }}>
+        {trades.length === 0 ? (
+          <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_LIGHT, fontSize: 14 }}>Log trades to see your equity curve</div>
+        ) : (
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }}>
+            {/* Grid lines */}
+            {yLabels.map((v, i) => (
+              <g key={i}>
+                <line x1={PAD} y1={toY(v)} x2={W - PAD} y2={toY(v)} stroke="#eee" strokeWidth="1" />
+                <text x={PAD - 8} y={toY(v) + 4} textAnchor="end" fontSize="11" fill={TEXT_LIGHT} fontFamily={F}>{fmtShort(v)}</text>
+              </g>
+            ))}
+            {/* Area fill */}
+            <defs>
+              <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={pnl >= 0 ? "#00c060" : "#ff3366"} stopOpacity="0.18" />
+                <stop offset="100%" stopColor={pnl >= 0 ? "#00c060" : "#ff3366"} stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            <path d={areaD} fill="url(#eqGrad)" />
+            {/* Target line */}
+            <line x1={PAD} y1={targetY} x2={W - PAD} y2={targetY} stroke="#ff9500" strokeWidth="1.5" strokeDasharray="6 4" />
+            <text x={W - PAD + 4} y={targetY + 4} fontSize="11" fill="#ff9500" fontFamily={F} fontWeight="600">Target</text>
+            {/* Equity line */}
+            <path d={pathD} fill="none" stroke={pnl >= 0 ? "#00c060" : "#ff3366"} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            {/* Dots */}
+            {points.map((v, i) => (
+              <circle key={i} cx={toX(i)} cy={toY(v)} r="4" fill={i === 0 ? TEXT_LIGHT : (v >= points[i-1] ? "#00c060" : "#ff3366")} stroke={CARD} strokeWidth="2" />
+            ))}
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
 function CalendarView({ trades }: { trades: any[] }) {
   const [calDate, setCalDate] = useState(new Date());
   const year = calDate.getFullYear();
@@ -87,7 +175,7 @@ function CalendarView({ trades }: { trades: any[] }) {
       <div style={{ padding: "20px 28px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 16, background: "#f8f9fd" }}>
         <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>P&L CALENDAR</div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ fontFamily: FH, fontSize: 18, fontWeight: 800, color: TEXT }}>{monthName}</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: TEXT }}>{monthName}</span>
           <span style={{ fontSize: 17, fontWeight: 700, color: monthPnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(monthPnl)}</span>
           <button onClick={() => setCalDate(new Date())} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>Today</button>
           <button onClick={() => setCalDate(new Date(year, month - 1, 1))} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 12px", fontSize: 16, cursor: "pointer" }}>‹</button>
@@ -105,7 +193,7 @@ function CalendarView({ trades }: { trades: any[] }) {
           const weekPnl = week.reduce((s, d) => s + (d ? (dayMap[dateKey(d)] || 0) : 0), 0);
           const weekTrades = week.reduce((s, d) => s + (d ? (dayCountMap[dateKey(d)] || 0) : 0), 0);
           return (
-            <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr) 120px", borderBottom: wi < weeks.length - 1 ? `1px solid #f0f3fa` : "none", minHeight: 86 }}>
+            <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr) 120px", borderBottom: wi < weeks.length - 1 ? `1px solid #f0f3fa` : "none", minHeight: 80 }}>
               {week.map((d, di) => {
                 if (!d) return <div key={di} style={{ background: "#fafbfd", borderRight: di < 6 ? `1px solid #f0f3fa` : "none" }} />;
                 const key = dateKey(d);
@@ -116,8 +204,8 @@ function CalendarView({ trades }: { trades: any[] }) {
                 const isWin = hasData && pnl > 0;
                 const isLoss = hasData && pnl < 0;
                 return (
-                  <div key={di} style={{ padding: "10px 12px", borderRight: di < 6 ? `1px solid #f0f3fa` : "none", background: isToday ? "rgba(0,191,255,0.05)" : isWin ? "rgba(0,192,80,0.05)" : isLoss ? "rgba(255,51,102,0.04)" : "transparent", minHeight: 86, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday ? "#00bfff" : "transparent", fontSize: 13, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : TEXT_MID }}>{d}</div>
+                  <div key={di} style={{ padding: "10px 12px", borderRight: di < 6 ? `1px solid #f0f3fa` : "none", background: isToday ? "rgba(0,191,255,0.05)" : isWin ? "rgba(0,192,80,0.05)" : isLoss ? "rgba(255,51,102,0.04)" : "transparent", minHeight: 80, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday ? "#00bfff" : "transparent", fontSize: 13, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : TEXT_MID }}>{d}</div>
                     {hasData && (
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: isWin ? "#00a040" : "#ff3366" }}>{fmtShort(pnl)}</div>
@@ -127,7 +215,7 @@ function CalendarView({ trades }: { trades: any[] }) {
                   </div>
                 );
               })}
-              <div style={{ padding: "14px 16px", borderLeft: `1px solid ${BORDER}`, background: weekPnl > 0 ? "rgba(0,192,80,0.06)" : weekPnl < 0 ? "rgba(255,51,102,0.05)" : "#fafbfd", display: "flex", flexDirection: "column", justifyContent: "center", gap: 5 }}>
+              <div style={{ padding: "14px 16px", borderLeft: `1px solid ${BORDER}`, background: weekPnl > 0 ? "rgba(0,192,80,0.06)" : weekPnl < 0 ? "rgba(255,51,102,0.05)" : "#fafbfd", display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 }}>
                 <div style={{ fontSize: 11, color: TEXT_LIGHT, fontWeight: 600 }}>Week {wi + 1}</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: weekPnl > 0 ? "#00a040" : weekPnl < 0 ? "#ff3366" : TEXT_LIGHT }}>{weekTrades > 0 ? fmtShort(weekPnl) : "$0"}</div>
                 <div style={{ fontSize: 11, color: TEXT_LIGHT }}>{weekTrades} trades</div>
@@ -140,37 +228,52 @@ function CalendarView({ trades }: { trades: any[] }) {
   );
 }
 
+// ── Session Modal ─────────────────────────────────────────────────────────────
 function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDelete, onClose }:
   { sessions: any[]; activeId: string; onSelect: (id: string) => void; onCreate: (name: string) => void; onRename: (id: string, name: string) => void; onDelete: (id: string) => void; onClose: () => void }) {
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(20,30,50,0.35)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div style={{ background: CARD, borderRadius: 20, padding: "36px 32px", width: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", border: `1px solid ${BORDER}` }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ fontFamily: FH, fontSize: 22, fontWeight: 800, color: TEXT, marginBottom: 8 }}>Sessions</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, marginBottom: 8 }}>Sessions</div>
         <div style={{ fontSize: 14, color: TEXT_LIGHT, marginBottom: 26 }}>Save and switch between named trade logs</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24, maxHeight: 300, overflowY: "auto" }}>
           {sessions.map((s) => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${s.id === activeId ? "#00bfff" : BORDER}`, background: s.id === activeId ? "rgba(0,191,255,0.05)" : "#fafbfd", cursor: "pointer" }}
-              onClick={() => { onSelect(s.id); onClose(); }}>
-              <div style={{ flex: 1 }}>
-                {renaming === s.id ? (
-                  <input value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { onRename(s.id, renameVal); setRenaming(null); } if (e.key === "Escape") setRenaming(null); }}
-                    autoFocus onClick={(e) => e.stopPropagation()}
-                    style={{ fontSize: 15, border: "1px solid #00bfff", borderRadius: 6, padding: "5px 12px", color: TEXT, width: "100%" }} />
-                ) : (
-                  <>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: TEXT }}>{s.name}</div>
-                    <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 3 }}>{loadSessionTrades(s.id).length} trades</div>
-                  </>
-                )}
-              </div>
-              {s.id === activeId && <span style={{ fontSize: 11, color: "#00bfff", fontWeight: 700, letterSpacing: 1 }}>ACTIVE</span>}
-              <button onClick={(e) => { e.stopPropagation(); setRenaming(s.id); setRenameVal(s.name); }} style={{ background: "none", border: "none", color: TEXT_LIGHT, cursor: "pointer", fontSize: 15, padding: "2px 6px" }}>✏️</button>
-              {sessions.length > 1 && (
-                <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${s.name}"?`)) onDelete(s.id); }} style={{ background: "none", border: "none", color: "#ff3366", cursor: "pointer", fontSize: 18, padding: "2px 4px" }}>×</button>
+            <div key={s.id}>
+              {confirmDelete === s.id ? (
+                <div style={{ padding: "14px 18px", borderRadius: 12, border: `1.5px solid #ff3366`, background: "rgba(255,51,102,0.05)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, marginBottom: 10 }}>Delete "{s.name}"?</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => { onDelete(s.id); setConfirmDelete(null); }} style={{ background: "#ff3366", border: "none", borderRadius: 8, color: "#fff", padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Yes, Delete</button>
+                    <button onClick={() => setConfirmDelete(null)} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "8px 18px", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 12, border: `1.5px solid ${s.id === activeId ? "#00bfff" : BORDER}`, background: s.id === activeId ? "rgba(0,191,255,0.05)" : "#fafbfd", cursor: "pointer" }}
+                  onClick={() => { onSelect(s.id); onClose(); }}>
+                  <div style={{ flex: 1 }}>
+                    {renaming === s.id ? (
+                      <input value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { onRename(s.id, renameVal); setRenaming(null); } if (e.key === "Escape") setRenaming(null); }}
+                        autoFocus onClick={(e) => e.stopPropagation()}
+                        style={{ fontSize: 15, border: "1px solid #00bfff", borderRadius: 6, padding: "5px 12px", color: TEXT, width: "100%" }} />
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: TEXT }}>{s.name}</div>
+                        <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 3 }}>{loadSessionTrades(s.id).length} trades</div>
+                      </>
+                    )}
+                  </div>
+                  {s.id === activeId && <span style={{ fontSize: 11, color: "#00bfff", fontWeight: 700, letterSpacing: 1 }}>ACTIVE</span>}
+                  <button onClick={(e) => { e.stopPropagation(); setRenaming(renaming === s.id ? null : s.id); setRenameVal(s.name); }}
+                    style={{ background: "none", border: "none", color: TEXT_LIGHT, cursor: "pointer", fontSize: 15, padding: "4px 8px", borderRadius: 6 }} title="Rename">✏️</button>
+                  <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(s.id); }}
+                    style={{ background: "none", border: "none", color: "#ff3366", cursor: "pointer", fontSize: 18, padding: "4px 8px", borderRadius: 6, lineHeight: 1 }} title="Delete">🗑</button>
+                </div>
               )}
             </div>
           ))}
@@ -193,6 +296,116 @@ function SessionModal({ sessions, activeId, onSelect, onCreate, onRename, onDele
   );
 }
 
+// ── CSV Import Modal ──────────────────────────────────────────────────────────
+function CSVImportModal({ onImport, onClose }: { onImport: (trades: any[]) => void; onClose: () => void }) {
+  const [preview, setPreview] = useState<any[]>([]);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const parseCSV = (text: string) => {
+    setError(""); setPreview([]);
+    const lines = text.trim().split("\n");
+    if (lines.length < 2) { setError("File appears empty or invalid."); return; }
+    const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, "").toLowerCase());
+
+    // Find P&L and date columns — support Topstep and common formats
+    const pnlIdx = headers.findIndex(h => h.includes("p&l") || h === "pnl" || h === "profit" || h === "net p&l");
+    const dateIdx = headers.findIndex(h => h.includes("entry time") || h.includes("date") || h.includes("time"));
+    const sizeIdx = headers.findIndex(h => h === "size" || h.includes("qty") || h.includes("quantity") || h.includes("contracts"));
+
+    if (pnlIdx === -1) { setError("Could not find a P&L column. Expected columns like 'P&L', 'Net P&L', or 'Profit'."); return; }
+
+    const parsed: any[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+      if (cols.length < 2) continue;
+      const rawPnl = parseFloat(cols[pnlIdx]?.replace(/[$,]/g, "") || "");
+      if (isNaN(rawPnl)) continue;
+
+      let tradeDate = today();
+      if (dateIdx !== -1 && cols[dateIdx]) {
+        const raw = cols[dateIdx];
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) tradeDate = d.toISOString().split("T")[0];
+      }
+
+      const contracts = sizeIdx !== -1 ? (parseInt(cols[sizeIdx]) || 1) : 1;
+      // Reverse-engineer points from P&L and contracts
+      const points = rawPnl / (OZ_PER_CONTRACT * contracts);
+
+      parsed.push({ id: Date.now() + i, date: tradeDate, points: parseFloat(points.toFixed(2)), contracts, dollar: rawPnl });
+    }
+
+    if (!parsed.length) { setError("No valid trades found. Make sure your CSV has P&L data."); return; }
+    setPreview(parsed.slice(0, 5));
+    return parsed;
+  };
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      parseCSV(text);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = () => {
+    const file = fileRef.current?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const trades = parseCSV(text);
+      if (trades && trades.length) { onImport(trades); onClose(); }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(20,30,50,0.35)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div style={{ background: CARD, borderRadius: 20, padding: "36px 32px", width: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", border: `1px solid ${BORDER}` }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, marginBottom: 8 }}>Import from CSV</div>
+        <div style={{ fontSize: 14, color: TEXT_LIGHT, marginBottom: 8 }}>Supports Topstep CSV exports. Needs a <strong>P&L</strong> column and optionally a date/size column.</div>
+        <div style={{ fontSize: 12, color: TEXT_LIGHT, marginBottom: 24, background: "#f5f7fc", padding: "10px 14px", borderRadius: 8 }}>
+          In Topstep: Dashboard → Trading History → Export → Download CSV
+        </div>
+
+        <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile}
+          style={{ display: "block", marginBottom: 16, fontSize: 14, color: TEXT }} />
+
+        {error && <div style={{ color: "#ff3366", fontSize: 13, marginBottom: 16, padding: "10px 14px", background: "rgba(255,51,102,0.07)", borderRadius: 8 }}>{error}</div>}
+
+        {preview.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 700, marginBottom: 8 }}>PREVIEW (first 5 trades)</div>
+            <div style={{ borderRadius: 8, overflow: "hidden", border: `1px solid ${BORDER}` }}>
+              {preview.map((t, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px", padding: "9px 14px", background: i % 2 === 0 ? CARD : "#fafbfd", fontSize: 13, gap: 8, alignItems: "center" }}>
+                  <div style={{ color: TEXT_MID }}>{t.date}</div>
+                  <div style={{ color: GOLD, fontWeight: 600 }}>{t.points > 0 ? "+" : ""}{t.points} pts</div>
+                  <div style={{ color: t.dollar >= 0 ? "#00a040" : "#ff3366", fontWeight: 700, textAlign: "right" }}>{fmt(t.dollar)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT_MID, padding: "12px 22px", fontSize: 14, cursor: "pointer" }}>Cancel</button>
+          <button onClick={handleImport} disabled={preview.length === 0}
+            style={{ background: preview.length > 0 ? "linear-gradient(135deg,#00bfff,#0070ff)" : BORDER, border: "none", borderRadius: 10, color: preview.length > 0 ? "#fff" : TEXT_LIGHT, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: preview.length > 0 ? "pointer" : "default" }}>
+            Import Trades
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ATR Tracker ───────────────────────────────────────────────────────────────
 function ATRTracker({ onBack }: { onBack: () => void }) {
   const [sessions, setSessions] = useState<any[]>([]);
   const [activeId, setActiveId] = useState<string>("");
@@ -201,14 +414,19 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
   const [points, setPoints] = useState("");
   const [contracts, setContracts] = useState("3");
   const [filter, setFilter] = useState("all");
-  // editing a row: track which field is being edited
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<"points"|"date"|null>(null);
   const [editPoints, setEditPoints] = useState("");
   const [editDate, setEditDate] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
   const [showSessions, setShowSessions] = useState(false);
+  const [showCSV, setShowCSV] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [startingEquity, setStartingEquity] = useState(50000);
+  const [targetEquity, setTargetEquity] = useState(53000);
+  const [editingEquity, setEditingEquity] = useState(false);
+  const [tempStart, setTempStart] = useState("50000");
+  const [tempTarget, setTempTarget] = useState("53000");
 
   useEffect(() => {
     let sess = loadSessions();
@@ -217,14 +435,36 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
     const lastActive = localStorage.getItem("atr-active-session") || sess[0].id;
     const validId = sess.find((s: any) => s.id === lastActive) ? lastActive : sess[0].id;
     setActiveId(validId); setTrades(loadSessionTrades(validId)); setLoading(false);
+    const eq = localStorage.getItem("atr-equity-settings");
+    if (eq) { try { const { start, target } = JSON.parse(eq); setStartingEquity(start); setTargetEquity(target); setTempStart(String(start)); setTempTarget(String(target)); } catch {} }
   }, []);
 
   const switchSession = (id: string) => { setActiveId(id); setTrades(loadSessionTrades(id)); localStorage.setItem("atr-active-session", id); setFilter("all"); };
   const createSession = (name: string) => { const s = { id: uid(), name, createdAt: Date.now() }; const u = [...sessions, s]; setSessions(u); saveSessions(u); switchSession(s.id); setShowSessions(false); showToast(`Session "${name}" created`); };
   const renameSession = (id: string, name: string) => { const u = sessions.map((s) => s.id === id ? { ...s, name } : s); setSessions(u); saveSessions(u); };
-  const deleteSession = (id: string) => { const u = sessions.filter((s) => s.id !== id); setSessions(u); saveSessions(u); localStorage.removeItem(`atr-sess-${id}`); switchSession(u[0].id); showToast("Session deleted"); };
+  const deleteSession = (id: string) => {
+    const u = sessions.filter((s) => s.id !== id);
+    if (!u.length) { showToast("Can't delete the only session", "error"); return; }
+    setSessions(u); saveSessions(u); localStorage.removeItem(`atr-sess-${id}`);
+    switchSession(u[0].id); showToast("Session deleted");
+  };
   const saveTrades = useCallback((u: any[], id: string) => { saveSessionTrades(id, u); }, []);
-  const showToast = (msg: string, type = "success") => { setToast({ msg, type }); setTimeout(() => setToast(null), 2200); };
+  const showToast = (msg: string, type = "success") => { setToast({ msg, type }); setTimeout(() => setToast(null), 2500); };
+
+  const saveEquitySettings = () => {
+    const start = parseFloat(tempStart) || 50000;
+    const target = parseFloat(tempTarget) || 53000;
+    setStartingEquity(start); setTargetEquity(target);
+    localStorage.setItem("atr-equity-settings", JSON.stringify({ start, target }));
+    setEditingEquity(false);
+    showToast("Equity settings saved");
+  };
+
+  const importTrades = (newTrades: any[]) => {
+    const u = [...newTrades, ...trades];
+    setTrades(u); saveTrades(u, activeId);
+    showToast(`${newTrades.length} trades imported`);
+  };
 
   const pointsNum = parseFloat(points);
   const contractsNum = parseInt(contracts) || 1;
@@ -240,21 +480,12 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
     showToast(dollar > 0 ? `+${fmt(dollar)} logged` : `${fmt(dollar)} logged`, dollar > 0 ? "success" : "loss");
   };
   const deleteTrade = (id: number) => { const u = trades.filter((t) => t.id !== id); setTrades(u); saveTrades(u, activeId); showToast("Trade removed"); };
-
-  const startEdit = (t: any, field: "points"|"date") => {
-    setEditingId(t.id); setEditingField(field);
-    if (field === "points") setEditPoints(String(t.points));
-    if (field === "date") setEditDate(t.date);
-  };
+  const startEdit = (t: any, field: "points"|"date") => { setEditingId(t.id); setEditingField(field); if (field === "points") setEditPoints(String(t.points)); if (field === "date") setEditDate(t.date); };
   const cancelEdit = () => { setEditingId(null); setEditingField(null); };
   const commitEdit = (id: number) => {
     const u = trades.map((t) => {
       if (t.id !== id) return t;
-      if (editingField === "points") {
-        const p = parseFloat(editPoints);
-        if (isNaN(p) || p === 0) return t;
-        return { ...t, points: p, dollar: p * OZ_PER_CONTRACT * t.contracts };
-      }
+      if (editingField === "points") { const p = parseFloat(editPoints); if (isNaN(p) || p === 0) return t; return { ...t, points: p, dollar: p * OZ_PER_CONTRACT * t.contracts }; }
       if (editingField === "date") return { ...t, date: editDate };
       return t;
     });
@@ -270,20 +501,27 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
   return (
     <div style={{ background: BG, minHeight: "100vh", color: TEXT }}>
       {showSessions && <SessionModal sessions={sessions} activeId={activeId} onSelect={switchSession} onCreate={createSession} onRename={renameSession} onDelete={deleteSession} onClose={() => setShowSessions(false)} />}
+      {showCSV && <CSVImportModal onImport={importTrades} onClose={() => setShowCSV(false)} />}
       {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 999, background: CARD, border: `2px solid ${toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00cc60"}`, borderRadius: 12, padding: "14px 24px", color: toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00a040", fontSize: 15, fontWeight: 600, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", animation: "slideIn .2s ease" }}>
+        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 999, background: CARD, border: `2px solid ${toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00cc60"}`, borderRadius: 12, padding: "14px 24px", color: toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00a040", fontSize: 15, fontWeight: 600, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", animation: "slideIn .2s ease", zIndex: 1001 }}>
           {toast.msg}
         </div>
       )}
 
       {/* Header */}
-      <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: "22px 36px", display: "flex", alignItems: "center", gap: 18, boxShadow: "0 2px 12px rgba(0,0,0,0.04)", flexWrap: "wrap" }}>
+      <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: "20px 36px", display: "flex", alignItems: "center", gap: 18, boxShadow: "0 2px 12px rgba(0,0,0,0.04)", flexWrap: "wrap" }}>
         <button onClick={onBack} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT_MID, padding: "10px 20px", fontSize: 14, cursor: "pointer", fontWeight: 600 }}>← Back</button>
         <div style={{ width: 1, height: 28, background: BORDER }} />
-        <div style={{ fontFamily: FH, fontSize: 22, fontWeight: 800, color: TEXT }}>📈 ATR <span style={{ color: "#00bfff" }}>Trailing Stop</span></div>
+        {/* Clickable title → home */}
+        <div onClick={onBack} style={{ fontWeight: 800, fontSize: 22, color: TEXT, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+          📈 ATR <span style={{ color: "#00bfff" }}>Trailing Stop</span>
+        </div>
         <div style={{ fontSize: 13, color: TEXT_LIGHT, letterSpacing: 1 }}>· 7MIN · /MGC · $10/PT/CTR</div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 14, alignItems: "center" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           {stats && <span style={{ fontSize: 16, color: stats.totalPnl >= 0 ? "#00a040" : "#ff3366", fontWeight: 700 }}>{fmt(stats.totalPnl)}</span>}
+          <button onClick={() => setShowCSV(true)} style={{ background: "#f0f6ff", border: `1px solid #c0d8ff`, borderRadius: 10, color: "#0070ff", padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+            ⬆ Import CSV
+          </button>
           <button onClick={() => setShowSessions(true)} style={{ background: GOLD_BG, border: `1.5px solid ${GOLD}`, borderRadius: 10, color: GOLD, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
             <span>📁</span><span>{activeSession?.name || "Session"}</span><span style={{ fontSize: 12, color: TEXT_LIGHT }}>▾</span>
           </button>
@@ -306,14 +544,13 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
               <div style={{ display: "flex", alignItems: "center", background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden" }}>
                 <span style={{ padding: "0 16px", color: GOLD, fontSize: 15, fontWeight: 700 }}>PT</span>
                 <input type="number" step="0.5" value={points} onChange={(e) => setPoints(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addTrade()}
-                  placeholder="+ win  /  − loss"
+                  onKeyDown={(e) => e.key === "Enter" && addTrade()} placeholder="+ win  /  − loss"
                   style={{ background: "transparent", border: "none", color: TEXT, padding: "13px 16px 13px 0", fontSize: 16, width: "100%", fontWeight: 600 }} />
               </div>
             </div>
             <div>
               <div style={{ fontSize: 13, color: TEXT_MID, marginBottom: 10, fontWeight: 600 }}>RESULT</div>
-              <div style={{ padding: "13px 26px", borderRadius: 10, fontSize: 15, fontWeight: 800, fontFamily: FH, letterSpacing: 1, minWidth: 120, textAlign: "center", background: isWin === null ? "#f5f7fc" : isWin ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.09)", color: isWin === null ? TEXT_LIGHT : isWin ? "#00a040" : "#ff3366", border: `2px solid ${isWin === null ? BORDER : isWin ? "#00c060" : "#ff3366"}`, transition: "all 0.2s" }}>
+              <div style={{ padding: "13px 26px", borderRadius: 10, fontSize: 15, fontWeight: 800, letterSpacing: 1, minWidth: 120, textAlign: "center", background: isWin === null ? "#f5f7fc" : isWin ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.09)", color: isWin === null ? TEXT_LIGHT : isWin ? "#00a040" : "#ff3366", border: `2px solid ${isWin === null ? BORDER : isWin ? "#00c060" : "#ff3366"}`, transition: "all 0.2s" }}>
                 {isWin === null ? "— —" : isWin ? "✓ WIN" : "✕ LOSS"}
               </div>
             </div>
@@ -358,68 +595,51 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
             )}
             {displayed.map((t, i) => {
               const win = t.points > 0;
-              const isEditingPoints = editingId === t.id && editingField === "points";
-              const isEditingDate = editingId === t.id && editingField === "date";
+              const isEditPts = editingId === t.id && editingField === "points";
+              const isEditDate = editingId === t.id && editingField === "date";
               return (
                 <div key={t.id} className="trade-row" style={{ display: "grid", gridTemplateColumns: "44px 160px 1fr 80px 130px 80px 44px", padding: "14px 24px", borderBottom: `1px solid #f0f3fa`, alignItems: "center", background: i % 2 === 0 ? CARD : "#fafbfd", transition: "background 0.1s" }}>
                   <div style={{ color: TEXT_LIGHT, fontSize: 13 }}>{displayed.length - i}</div>
-
-                  {/* Editable DATE */}
                   <div>
-                    {isEditingDate ? (
+                    {isEditDate ? (
                       <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") commitEdit(t.id); if (e.key === "Escape") cancelEdit(); }}
-                        autoFocus
-                        style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 10px", fontSize: 13, fontFamily: F }} />
+                        autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 10px", fontSize: 13 }} />
                     ) : (
-                      <span onDoubleClick={() => startEdit(t, "date")} title="Double-click to edit date"
-                        style={{ color: TEXT_MID, fontSize: 14, cursor: "text", borderBottom: `1px dashed ${BORDER}` }}>
-                        {t.date}
-                      </span>
+                      <span onDoubleClick={() => startEdit(t, "date")} title="Double-click to edit"
+                        style={{ color: TEXT_MID, fontSize: 14, cursor: "text", borderBottom: `1px dashed ${BORDER}`, paddingBottom: 1 }}>{t.date}</span>
                     )}
                   </div>
-
-                  {/* Editable POINTS */}
                   <div>
-                    {isEditingPoints ? (
+                    {isEditPts ? (
                       <input type="number" step="0.5" value={editPoints} onChange={(e) => setEditPoints(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") commitEdit(t.id); if (e.key === "Escape") cancelEdit(); }}
                         autoFocus style={{ background: "#f5f7fc", border: "1px solid #00bfff", borderRadius: 6, color: TEXT, padding: "5px 12px", fontSize: 15, width: 100 }} />
                     ) : (
-                      <span onDoubleClick={() => startEdit(t, "points")} title="Double-click to edit points"
-                        style={{ color: GOLD, fontSize: 16, fontWeight: 700, cursor: "text", fontFamily: FH, borderBottom: `1px dashed ${BORDER}` }}>
-                        {win ? "+" : ""}{t.points} <span style={{ fontSize: 12, color: TEXT_LIGHT, fontFamily: F, fontWeight: 400 }}>pts</span>
+                      <span onDoubleClick={() => startEdit(t, "points")} title="Double-click to edit"
+                        style={{ color: GOLD, fontSize: 16, fontWeight: 700, cursor: "text", borderBottom: `1px dashed ${BORDER}`, paddingBottom: 1 }}>
+                        {win ? "+" : ""}{t.points} <span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 400 }}>pts</span>
                       </span>
                     )}
                   </div>
-
                   <div style={{ color: TEXT_MID, fontSize: 14 }}>{t.contracts}x</div>
                   <div style={{ color: win ? "#00a040" : "#ff3366", fontSize: 15, fontWeight: 700 }}>{fmt(t.dollar)}</div>
-                  <div>
-                    <span style={{ background: win ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.08)", color: win ? "#00a040" : "#ff3366", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700 }}>
-                      {win ? "WIN" : "LOSS"}
-                    </span>
-                  </div>
-                  <div>
-                    <button className="btn-del" onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", color: "#ff3366", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1, opacity: 0, transition: "opacity 0.15s" }}>×</button>
-                  </div>
+                  <div><span style={{ background: win ? "rgba(0,192,80,0.1)" : "rgba(255,51,102,0.08)", color: win ? "#00a040" : "#ff3366", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700 }}>{win ? "WIN" : "LOSS"}</span></div>
+                  <div><button className="btn-del" onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", color: "#ff3366", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1, opacity: 0, transition: "opacity 0.15s" }}>×</button></div>
                 </div>
               );
             })}
             {displayed.length > 0 && (
               <div style={{ padding: "10px 24px", background: "#f8f9fd", borderTop: `1px solid ${BORDER}`, fontSize: 11, color: TEXT_LIGHT, textAlign: "center" }}>
-                Double-click DATE or POINTS to edit
+                Double-click DATE or POINTS to edit · Enter to save · Esc to cancel
               </div>
             )}
           </div>
         </div>
 
-        {/* ③ CALENDAR */}
-        <CalendarView trades={trades} />
-
-        {/* ④ STATS */}
+        {/* ③ STATS */}
         {stats && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 26 }}>
             {[
               { label: "WIN RATE", value: `${stats.winPct}%`, sub: `${stats.wins}W / ${stats.losses}L`, color: parseFloat(stats.winPct) >= 50 ? "#00b050" : "#ff3366" },
               { label: "TOTAL P&L", value: fmt(stats.totalPnl), sub: `avg ${fmt(parseFloat(stats.avgDollar))}/trade`, color: stats.totalPnl >= 0 ? "#00bfff" : "#ff3366" },
@@ -432,13 +652,106 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
             ].map((s) => (
               <div key={s.label} className="stat-card" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: "20px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
                 <div style={{ fontSize: 12, letterSpacing: 1, color: TEXT_LIGHT, marginBottom: 12, fontWeight: 700 }}>{s.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: FH, lineHeight: 1.2 }}>{s.value}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1.2 }}>{s.value}</div>
                 <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 8 }}>{s.sub}</div>
               </div>
             ))}
           </div>
         )}
-        <div style={{ textAlign: "center", marginBottom: 28, fontSize: 12, color: TEXT_LIGHT }}>
+
+        {/* ④ P&L CALENDAR */}
+        <CalendarView trades={trades} />
+
+        {/* ⑤ EQUITY CURVE */}
+        {/* Equity settings */}
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 14px rgba(0,0,0,0.04)", marginBottom: 0 }}>
+          <div style={{ padding: "20px 28px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 20, background: "#f8f9fd", flexWrap: "wrap" }}>
+            <div style={{ fontSize: 13, letterSpacing: 1, color: TEXT_LIGHT, fontWeight: 700 }}>EQUITY CURVE</div>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+              {editingEquity ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 600 }}>Starting $</span>
+                    <input type="number" value={tempStart} onChange={e => setTempStart(e.target.value)}
+                      style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "6px 12px", fontSize: 14, width: 110 }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 600 }}>Target $</span>
+                    <input type="number" value={tempTarget} onChange={e => setTempTarget(e.target.value)}
+                      style={{ background: "#f5f7fc", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, padding: "6px 12px", fontSize: 14, width: 110 }} />
+                  </div>
+                  <button onClick={saveEquitySettings} style={{ background: "#00bfff", border: "none", borderRadius: 8, color: "#fff", padding: "7px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Save</button>
+                  <button onClick={() => setEditingEquity(false)} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 14px", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Starting</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>{fmtShort(startingEquity)}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 18, height: 0, borderTop: "2px dashed #ff9500" }} />
+                    <span style={{ fontSize: 12, color: "#ff9500", fontWeight: 600 }}>Target {fmtShort(targetEquity)}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Current</span>
+                    {(() => { const cur = startingEquity + trades.reduce((s,t) => s+t.dollar,0); const pnl = cur - startingEquity; return <span style={{ fontSize: 15, fontWeight: 700, color: pnl >= 0 ? "#00a040" : "#ff3366" }}>{fmtShort(cur)} ({pnl >= 0 ? "+" : ""}{fmtShort(pnl)})</span>; })()}
+                  </div>
+                  {startingEquity + trades.reduce((s,t) => s+t.dollar,0) >= targetEquity && (
+                    <span style={{ background: "#00a04020", color: "#00a040", padding: "3px 10px", borderRadius: 10, fontSize: 12, fontWeight: 700 }}>✓ TARGET REACHED</span>
+                  )}
+                  <button onClick={() => setEditingEquity(true)} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT_MID, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>✏️ Edit</button>
+                </>
+              )}
+            </div>
+          </div>
+          <div style={{ padding: "16px 24px 20px", overflowX: "auto" }}>
+            {trades.length === 0 ? (
+              <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_LIGHT, fontSize: 14 }}>Log trades to see your equity curve</div>
+            ) : (() => {
+              const W = 900, H = 260, PAD = 64;
+              const sorted = [...trades].reverse();
+              const points: number[] = [startingEquity];
+              sorted.forEach((t) => points.push(points[points.length - 1] + t.dollar));
+              const minVal = Math.min(...points, targetEquity) * 0.998;
+              const maxVal = Math.max(...points, targetEquity) * 1.002;
+              const range = maxVal - minVal || 1;
+              const toX = (i: number) => PAD + (i / Math.max(points.length - 1, 1)) * (W - PAD * 2);
+              const toY = (v: number) => PAD + (1 - (v - minVal) / range) * (H - PAD * 2);
+              const pathD = points.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
+              const areaD = pathD + ` L ${toX(points.length - 1).toFixed(1)} ${toY(minVal).toFixed(1)} L ${toX(0).toFixed(1)} ${toY(minVal).toFixed(1)} Z`;
+              const targetY = toY(targetEquity);
+              const pnl = points[points.length-1] - startingEquity;
+              const ySteps = 5;
+              const yLabels = Array.from({ length: ySteps }, (_, i) => minVal + (range * i) / (ySteps - 1));
+              return (
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }}>
+                  <defs>
+                    <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={pnl >= 0 ? "#00c060" : "#ff3366"} stopOpacity="0.18" />
+                      <stop offset="100%" stopColor={pnl >= 0 ? "#00c060" : "#ff3366"} stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  {yLabels.map((v, i) => (
+                    <g key={i}>
+                      <line x1={PAD} y1={toY(v)} x2={W-PAD} y2={toY(v)} stroke="#eee" strokeWidth="1" />
+                      <text x={PAD-8} y={toY(v)+4} textAnchor="end" fontSize="11" fill={TEXT_LIGHT}>{fmtShort(v)}</text>
+                    </g>
+                  ))}
+                  <path d={areaD} fill="url(#eqGrad)" />
+                  <line x1={PAD} y1={targetY} x2={W-PAD} y2={targetY} stroke="#ff9500" strokeWidth="1.5" strokeDasharray="6 4" />
+                  <text x={W-PAD+6} y={targetY+4} fontSize="11" fill="#ff9500" fontWeight="600">Target</text>
+                  <path d={pathD} fill="none" stroke={pnl >= 0 ? "#00c060" : "#ff3366"} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                  {points.map((v, i) => (
+                    <circle key={i} cx={toX(i)} cy={toY(v)} r={i === 0 || i === points.length-1 ? 5 : 3.5} fill={i === 0 ? TEXT_LIGHT : (v >= points[i-1] ? "#00c060" : "#ff3366")} stroke={CARD} strokeWidth="2" />
+                  ))}
+                </svg>
+              );
+            })()}
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center", margin: "24px 0 4px", fontSize: 12, color: TEXT_LIGHT }}>
           /MGC = $10 per point per contract · Data saved to browser
         </div>
       </div>
@@ -446,6 +759,7 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
   );
 }
 
+// ── Home Page ─────────────────────────────────────────────────────────────────
 const STRATEGIES = [
   { id: "atr-trailing", name: "ATR Trailing Stop", tag: "7MIN · /MGC", description: "ATR trailing stop strategy. Log points manually — positive = win, negative = loss. Auto-calculates P&L per /MGC micro contract.", color: "#00bfff", icon: "📈" },
   { id: "cs1", name: "EMA Crossover", tag: "COMING SOON", description: "5 EMA / 20 EMA crossover strategy tracker. Log crossover signals and track performance over time.", color: "#aa66ff", icon: "🔀", locked: true },
@@ -456,12 +770,12 @@ function HomePage({ onSelect, tradeCounts }: { onSelect: (id: string) => void; t
   return (
     <div style={{ minHeight: "100vh", background: BG }}>
       <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: "24px 40px", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ fontFamily: FH, fontSize: 26, fontWeight: 800, color: TEXT }}>ATR <span style={{ color: "#00bfff" }}>TRADE</span> BACKTESTER</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: TEXT }}>ATR <span style={{ color: "#00bfff" }}>TRADE</span> BACKTESTER</div>
         <div style={{ fontSize: 13, color: TEXT_LIGHT, letterSpacing: 2 }}>· STRATEGY DASHBOARD</div>
       </div>
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 32px" }}>
         <div style={{ marginBottom: 36 }}>
-          <div style={{ fontFamily: FH, fontSize: 30, fontWeight: 800, color: TEXT, marginBottom: 10 }}>My Strategies</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: TEXT, marginBottom: 10 }}>My Strategies</div>
           <div style={{ fontSize: 16, color: TEXT_MID }}>Select a strategy to log and analyze your backtesting trades.</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 24 }}>
@@ -475,7 +789,7 @@ function HomePage({ onSelect, tradeCounts }: { onSelect: (id: string) => void; t
                   <span style={{ fontSize: 36 }}>{s.icon}</span>
                   <span style={{ fontSize: 12, letterSpacing: 1, color: s.locked ? TEXT_LIGHT : s.color, fontWeight: 700, background: s.locked ? "#f0f2f8" : `${s.color}16`, padding: "5px 14px", borderRadius: 20 }}>{s.tag}</span>
                 </div>
-                <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 800, color: TEXT, marginBottom: 12 }}>{s.name}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, marginBottom: 12 }}>{s.name}</div>
                 <div style={{ fontSize: 14, color: TEXT_MID, lineHeight: 1.7, marginBottom: 24 }}>{s.description}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: 13, color: TEXT_LIGHT }}>{s.locked ? "—" : <><span style={{ color: TEXT, fontWeight: 700 }}>{count}</span> trades logged</>}</div>
