@@ -503,7 +503,7 @@ function ATRTracker({ onBack }: { onBack: () => void }) {
       {showSessions && <SessionModal sessions={sessions} activeId={activeId} onSelect={switchSession} onCreate={createSession} onRename={renameSession} onDelete={deleteSession} onClose={() => setShowSessions(false)} />}
       {showCSV && <CSVImportModal onImport={importTrades} onClose={() => setShowCSV(false)} />}
       {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 999, background: CARD, border: `2px solid ${toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00cc60"}`, borderRadius: 12, padding: "14px 24px", color: toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00a040", fontSize: 15, fontWeight: 600, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", animation: "slideIn .2s ease", zIndex: 1001 }}>
+        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 1001, background: CARD, border: `2px solid ${toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00cc60"}`, borderRadius: 12, padding: "14px 24px", color: toast.type === "error" ? "#ff3366" : toast.type === "loss" ? "#ff6633" : "#00a040", fontSize: 15, fontWeight: 600, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", animation: "slideIn .2s ease" }}>
           {toast.msg}
         </div>
       )}
